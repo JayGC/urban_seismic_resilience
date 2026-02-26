@@ -1,0 +1,32 @@
+# Medium hazard scenario — baseline configuration
+grid_width: 50
+grid_height: 50
+building_density: 0.25
+num_victims: 30
+num_fires: 10
+victim_decay_rate: 1.5
+fire_spread_prob: 0.05
+max_steps: 50
+seed: 42
+
+seismic:
+  epicenter: [25, 25]
+  magnitude: 6.5
+  decay_k: 0.05
+  intensity_scale: 1.0
+  aftershocks:
+    - step: 8
+      magnitude: 5.0
+    - step: 15
+      magnitude: 4.5
+  black_swans: []
+
+agents:
+  num_scouts: 3
+  num_firefighters: 3
+  num_medics: 4
+
+controller_mode: hierarchical
+commander_type: heuristic
+dropout_rate: 0.0
+message_mode: semantic
