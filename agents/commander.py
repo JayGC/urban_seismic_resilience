@@ -127,10 +127,10 @@ class LLMCommander(CommanderAgent):
                  model: str = 'gpt-4o-mini',
                  provider: str = 'openai'):
         super().__init__(agent_ids)
-        self.api_key = api_key
+        self.api_key = "sk-4vlPjI2Qe85TQsNwcsatoA"
         self.model = model
         self.provider = provider
-        self.fallback = HeuristicCommander(agent_ids)
+        # self.fallback = HeuristicCommander(agent_ids)
         self.llm_call_count = 0
         self.total_tokens = 0
 
@@ -203,51 +203,75 @@ Respond ONLY with the JSON array, no other text."""
 
         prompt = self._build_prompt(observation, messages)
 
-        try:
-            assignments = self._call_llm(prompt)
-            commands = self._parse_assignments(assignments)
-            if commands:
-                return commands
-        except Exception as e:
-            pass  # Fall through to heuristic
+        # try:
+        assignments = self._call_llm(prompt)
+        commands = self._parse_assignments(assignments)
+        print(f"LLM Commander assignments at step {self.step}: {commands}")
+        if commands:
+            return commands
+        # except Exception as e:
+        #     pass  # Fall through to heuristic
 
         # Fallback
-        self.fallback.agent_ids = self.agent_ids
-        return self.fallback.decide(observation, messages, env)
+        # self.fallback.agent_ids = self.agent_ids
+        # return self.fallback.decide(observation, messages, env)
 
+    # def _call_llm(self, prompt: str) -> str:
+    #     """Call the LLM API. Override for different providers."""
+    #     self.llm_call_count += 1
+
+    #     if self.provider == 'openai' and self.api_key:
+    #         import openai
+    #         client = openai.OpenAI(api_key=self.api_key)
+    #         response = client.chat.completions.create(
+    #             model=self.model,
+    #             messages=[
+    #                 {"role": "system", "content": "You are a disaster response commander. Respond only with JSON."},
+    #                 {"role": "user", "content": prompt},
+    #             ],
+    #             max_tokens=500,
+    #             temperature=0.3,
+    #         )
+    #         self.total_tokens += response.usage.total_tokens if response.usage else 0
+    #         return response.choices[0].message.content
+
+    #     elif self.provider == 'anthropic' and self.api_key:
+    #         import anthropic
+    #         client = anthropic.Anthropic(api_key=self.api_key)
+    #         response = client.messages.create(
+    #             model=self.model,
+    #             max_tokens=500,
+    #             messages=[{"role": "user", "content": prompt}],
+    #             system="You are a disaster response commander. Respond only with JSON.",
+    #         )
+    #         return response.content[0].text
+
+    #     else:
+    #         # Simulate LLM response for testing (uses heuristic logic)
+    #         return self._simulated_llm_response()
     def _call_llm(self, prompt: str) -> str:
-        """Call the LLM API. Override for different providers."""
+        """Call Triton API via OpenAI client."""
+        from openai import OpenAI
+
         self.llm_call_count += 1
 
-        if self.provider == 'openai' and self.api_key:
-            import openai
-            client = openai.OpenAI(api_key=self.api_key)
-            response = client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a disaster response commander. Respond only with JSON."},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=500,
-                temperature=0.3,
-            )
-            self.total_tokens += response.usage.total_tokens if response.usage else 0
-            return response.choices[0].message.content
+        client = OpenAI(
+            api_key=self.api_key,
+            base_url="https://tritonai-api.ucsd.edu",
+        )
 
-        elif self.provider == 'anthropic' and self.api_key:
-            import anthropic
-            client = anthropic.Anthropic(api_key=self.api_key)
-            response = client.messages.create(
-                model=self.model,
-                max_tokens=500,
-                messages=[{"role": "user", "content": prompt}],
-                system="You are a disaster response commander. Respond only with JSON.",
-            )
-            return response.content[0].text
+        response = client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": "You are a disaster response commander. Respond only with JSON."},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=8192,
+            temperature=0.3,
+        )
 
-        else:
-            # Simulate LLM response for testing (uses heuristic logic)
-            return self._simulated_llm_response()
+        self.total_tokens += response.usage.total_tokens if response.usage else 0
+        return response.choices[0].message.content  
 
     def _simulated_llm_response(self) -> str:
         """Generate a simulated LLM response based on heuristic logic (for testing without API)."""

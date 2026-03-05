@@ -85,7 +85,7 @@ class SimulationController:
                 self.commander = LLMCommander(
                     agent_ids,
                     api_key=self.config.get('api_key'),
-                    model=self.config.get('llm_model', 'gpt-4o-mini'),
+                    model=self.config.get('llm_model', 'api-gpt-oss-120b'),
                     provider=self.config.get('llm_provider', 'openai'),
                 )
             else:

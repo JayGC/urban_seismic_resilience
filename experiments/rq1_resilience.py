@@ -38,7 +38,7 @@ def run_rq1(results_dir: str = 'results', num_seeds: int = 5, verbose: bool = Tr
         # Hierarchical condition
         hier_config = copy.deepcopy(base_config)
         hier_config['controller_mode'] = 'hierarchical'
-        hier_config['commander_type'] = 'heuristic'
+        hier_config['commander_type'] = 'llm'
 
         # Decentralized condition
         decen_config = copy.deepcopy(base_config)
