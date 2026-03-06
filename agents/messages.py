@@ -144,13 +144,14 @@ def make_report(agent_id: str, position: tuple, observations: dict, step: int) -
     content = (f"Agent {agent_id} at ({position[0]},{position[1]}): "
                f"{victims} victims, {fires} fires, {blocked} blocked roads nearby.")
 
+    blocked = observations.get('blocked_nearby', 0)
     return Message(
         sender=agent_id,
         receiver='commander',
         msg_type=MessageType.REPORT,
         content=content,
         step=step,
-        metadata={'position': position, 'victims': victims, 'fires': fires},
+        metadata={'position': position, 'victims': victims, 'fires': fires, 'blocked': blocked},
     )
 
 
