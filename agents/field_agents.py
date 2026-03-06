@@ -11,6 +11,8 @@ from .messages import Message, MessageBus, MessageType, make_report, make_emerge
 class FieldAgent:
     """Base class for field agents with local observation and heuristic movement."""
 
+    SEARCH_RADIUS = 8  # Max BFS steps when finding nearest target (confined search)
+
     def __init__(self, agent_id: str, agent_type: str, position: Tuple[int, int],
                  observation_radius: int = 1):
         self.agent_id = agent_id
@@ -18,6 +20,7 @@ class FieldAgent:
         self.position = position
         self.observation_radius = observation_radius
         self.current_task: Optional[dict] = None
+        self.task_queue: List[dict] = []  # Pending tasks; no new task until current done
         self.path: List[Tuple[int, int]] = []
         self.idle_steps = 0
         self.total_steps = 0
@@ -38,12 +41,12 @@ class FieldAgent:
         self.total_steps += 1
         outgoing = []
 
-        # Check for task assignments
+        # Check for task assignments (queue if already busy)
         for msg in messages:
             if msg.msg_type == MessageType.TASK_ASSIGNMENT:
-                self._accept_task(msg, env)
+                self._accept_or_queue_task(msg, env)
 
-        # If we have a task with a target, pathfind toward it
+        # If we have a task with a target, move toward it (incrementally, no full path)
         if self.current_task and 'target_pos' in self.current_task:
             action = self._follow_task(env)
         else:
@@ -61,33 +64,65 @@ class FieldAgent:
 
         return action, outgoing
 
-    def _accept_task(self, msg: Message, env):
-        """Accept a task assignment from commander."""
+    def _accept_or_queue_task(self, msg: Message, env):
+        """Accept task if idle; otherwise queue for later."""
         target_pos = msg.metadata.get('target_pos')
         task_type = msg.metadata.get('task_type', 'move_to')
-        self.current_task = {
-            'type': task_type,
-            'target_pos': target_pos,
-        }
-        # Compute path
-        if target_pos:
-            self.path = env.grid.shortest_path(self.position, target_pos) or []
+        task = {'type': task_type, 'target_pos': target_pos}
+
+        if self.current_task is None:
+            self.current_task = task
+            # No full A* path - we move incrementally toward target each step
+            self.path = []
+        else:
+            self.task_queue.append(task)
 
     def _follow_task(self, env) -> dict:
-        """Follow current task path."""
-        if not self.path or len(self.path) <= 1:
-            # Arrived at target or path broken
+        """Move one step toward target (no full pathfinding). At target, perform task action."""
+        target_pos = self.current_task.get('target_pos')
+        if not target_pos:
             action = self._task_action_at_target()
-            self.current_task = None
-            self.path = []
+            self._finish_task_and_pop_queue()
             return action
 
-        # Move along path
-        next_pos = self.path[1]
-        dx = next_pos[0] - self.position[0]
-        dy = next_pos[1] - self.position[1]
-        self.path = self.path[1:]
-        return {'type': 'move', 'dx': dx, 'dy': dy}
+        # Check if at/near target (within 2 cells for rescue/extinguish reach)
+        dist = abs(self.position[0] - target_pos[0]) + abs(self.position[1] - target_pos[1])
+        if dist <= 2:
+            action = self._task_action_at_target()
+            self._finish_task_and_pop_queue()
+            return action
+
+        # Move one step toward target (greedy direction, no full A*)
+        move = self._move_one_step_toward(target_pos, env)
+        if move:
+            return move
+        # Blocked - try to get unstuck or give up
+        action = self._task_action_at_target()
+        self._finish_task_and_pop_queue()
+        return action
+
+    def _finish_task_and_pop_queue(self):
+        """Mark task done and start next from queue if any."""
+        self.current_task = None
+        if self.task_queue:
+            self.current_task = self.task_queue.pop(0)
+
+    def _move_one_step_toward(self, target: Tuple[int, int], env) -> Optional[dict]:
+        """Move one step toward target (no full path). Pick neighbor that minimizes distance."""
+        if self.position not in env.grid.graph:
+            return None
+        best_pos = None
+        best_dist = float('inf')
+        for neighbor in env.grid.graph.neighbors(self.position):
+            d = abs(neighbor[0] - target[0]) + abs(neighbor[1] - target[1])
+            if d < best_dist:
+                best_dist = d
+                best_pos = neighbor
+        if best_pos and best_dist < abs(self.position[0] - target[0]) + abs(self.position[1] - target[1]):
+            dx = best_pos[0] - self.position[0]
+            dy = best_pos[1] - self.position[1]
+            return {'type': 'move', 'dx': dx, 'dy': dy}
+        return None
 
     def _task_action_at_target(self) -> dict:
         """Action to perform when arrived at task target."""
@@ -128,18 +163,19 @@ class FieldAgent:
         )
 
     def _find_nearest_target(self, env, target_type: str) -> Optional[Tuple[int, int]]:
-        """Find nearest cell matching target type using BFS on the grid graph."""
-        import networkx as nx
+        """Find nearest cell matching target type using BFS, confined to SEARCH_RADIUS."""
         if self.position not in env.grid.graph:
             return None
 
-        # BFS from current position
         visited = set()
-        queue = [self.position]
+        queue: List[Tuple[int, int, int]] = [(self.position[0], self.position[1], 0)]
         visited.add(self.position)
 
         while queue:
-            current = queue.pop(0)
+            x, y, dist = queue.pop(0)
+            if dist > self.SEARCH_RADIUS:
+                continue
+            current = (x, y)
             # Check cells within radius 2 (to find victims in nearby buildings)
             for dx in range(-2, 3):
                 for dy in range(-2, 3):
@@ -148,7 +184,7 @@ class FieldAgent:
                         cell = env.grid.cells[check]
                         if target_type == 'victim':
                             if any(not v.rescued and v.health > 0 for v in cell.victims):
-                                return current  # Return the road cell nearby
+                                return current
                         elif target_type == 'fire':
                             if cell.hazard.name == 'FIRE':
                                 return current
@@ -156,19 +192,14 @@ class FieldAgent:
             for neighbor in env.grid.graph.neighbors(current):
                 if neighbor not in visited:
                     visited.add(neighbor)
-                    queue.append(neighbor)
+                    queue.append((neighbor[0], neighbor[1], dist + 1))
 
         return None
 
     def _move_toward(self, target: Tuple[int, int], env) -> dict:
-        """Move one step toward target using pathfinding."""
-        path = env.grid.shortest_path(self.position, target)
-        if path and len(path) > 1:
-            next_pos = path[1]
-            dx = next_pos[0] - self.position[0]
-            dy = next_pos[1] - self.position[1]
-            return {'type': 'move', 'dx': dx, 'dy': dy}
-        return {'type': 'noop'}
+        """Move one step toward target (incremental, no full A* path)."""
+        move = self._move_one_step_toward(target, env)
+        return move if move else {'type': 'noop'}
 
     def _random_move(self, env) -> dict:
         """Move in a random valid direction."""
@@ -200,20 +231,22 @@ class ScoutAgent(FieldAgent):
         return self._random_move(env)
 
     def _find_nearest_unexplored(self, env) -> Optional[Tuple[int, int]]:
-        """BFS for nearest unexplored road cell."""
+        """BFS for nearest unexplored road cell, confined to SEARCH_RADIUS."""
         if self.position not in env.grid.graph:
             return None
         visited = set()
-        queue = [self.position]
+        queue: List[Tuple[Tuple[int, int], int]] = [(self.position, 0)]
         visited.add(self.position)
         while queue:
-            current = queue.pop(0)
+            current, dist = queue.pop(0)
+            if dist > self.SEARCH_RADIUS:
+                continue
             if not env.grid.cells[current].explored:
                 return current
             for neighbor in env.grid.graph.neighbors(current):
                 if neighbor not in visited:
                     visited.add(neighbor)
-                    queue.append(neighbor)
+                    queue.append((neighbor, dist + 1))
         return None
 
 
