@@ -98,11 +98,10 @@ class SimulationController:
         # 1. Commander phase (if hierarchical)
         commander_commands = []
         if self.mode == 'hierarchical' and self.commander:
-            # Commander observes
-            cmd_obs = self.env.get_commander_observation()
-            # Commander receives reports from bus
+            # Commander receives reports from bus (no ground-truth env observation)
             reports = self.message_bus.receive_all()
-            # Commander decides
+            # Commander decides using ONLY mental map built from reports
+            cmd_obs = {'step': self.env.step_count}  # No zones/agent_positions from env
             commander_commands = self.commander.decide(cmd_obs, reports, self.env)
             # Send commands through bus
             for cmd in commander_commands:
