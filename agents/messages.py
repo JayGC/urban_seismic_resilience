@@ -160,7 +160,8 @@ def make_report(agent_id: str, position: tuple, observations: dict, step: int) -
 
 def make_task_assignment(target_agent: str, task_type: str,
                          target_pos: tuple, step: int,
-                         details: str = '') -> Message:
+                         details: str = '',
+                         path: Optional[List[tuple]] = None) -> Message:
     """Create a commander task assignment."""
     content = f"TASK: {task_type} at ({target_pos[0]},{target_pos[1]}). {details}"
 
@@ -171,7 +172,11 @@ def make_task_assignment(target_agent: str, task_type: str,
         content=content,
         step=step,
         priority=1,
-        metadata={'task_type': task_type, 'target_pos': target_pos},
+        metadata={
+            'task_type': task_type,
+            'target_pos': target_pos,
+            'path': path or [],
+        },
     )
 
 

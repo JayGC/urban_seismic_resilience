@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, List, Tuple, Set
 
 
+
 class CellType(Enum):
     ROAD = 0
     BUILDING = 1
@@ -19,7 +20,6 @@ class HazardType(Enum):
     NONE = 0
     FIRE = 1
     DEBRIS = 2
-    GAS_LEAK = 3
 
 
 @dataclass
@@ -70,6 +70,7 @@ class Building:
     height: int = 1  # floors; affects spillover radius
     collapsed: bool = False
     collapse_threshold: float = 20.0
+    num_people_inside: int = 0
 
     def apply_damage(self, damage: float):
         self.integrity = max(0.0, self.integrity - damage)
@@ -80,6 +81,8 @@ class Building:
             return False
         if self.integrity <= 0:
             self.collapsed = True
+    
+                # This will be handled by the Grid's spillover logic
             return True
         if self.integrity < self.collapse_threshold:
             prob = 1.0 - (self.integrity / self.collapse_threshold)
@@ -192,6 +195,7 @@ class Grid:
             for idx in chosen_positions:
                 pos = building_positions[idx]
                 v = Victim(victim_id=self.victim_counter, position=pos)
+                building.num_people_inside += 1
                 self.victim_counter += 1
                 self.cells[pos].victims.append(v)
         # edge_cells = []
@@ -242,6 +246,7 @@ class Grid:
         cell = self.cells.get((x, y))
         if cell and cell.cell_type == CellType.ROAD:
             cell.blocked = True
+            cell.hazard = HazardType.DEBRIS
             if (x, y) in self.graph:
                 self.graph.remove_node((x, y))
 
@@ -327,12 +332,10 @@ class Grid:
     def get_zone_summary(self, zone_x: int, zone_y: int,
                          zone_size: int = 10) -> dict:
         """Coarse zone summary for commander observation."""
-        victims_alive = 0
-        victims_dead = 0
-        victims_rescued = 0
         fires = 0
         blocked_roads = 0
         collapsed = 0
+        victims = 0
 
         for dy in range(zone_size):
             for dx in range(zone_size):
@@ -340,13 +343,6 @@ class Grid:
                 if pos not in self.cells:
                     continue
                 c = self.cells[pos]
-                for v in c.victims:
-                    if v.rescued:
-                        victims_rescued += 1
-                    elif v.health > 0:
-                        victims_alive += 1
-                    else:
-                        victims_dead += 1
                 if c.hazard == HazardType.FIRE:
                     fires += 1
                 if c.blocked:
@@ -355,13 +351,13 @@ class Grid:
                     b = self.buildings.get(c.building_id)
                     if b and b.collapsed:
                         collapsed += 1
+                        if b.num_people_inside > 0:
+                            victims += b.num_people_inside
 
         return {
             'zone': (zone_x, zone_y),
-            'victims_alive': victims_alive,
-            'victims_dead': victims_dead,
-            'victims_rescued': victims_rescued,
             'fires': fires,
+            'victims': victims,
             'blocked_roads': blocked_roads,
             'collapsed_buildings': collapsed,
         }

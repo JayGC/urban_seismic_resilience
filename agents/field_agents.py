@@ -67,13 +67,22 @@ class FieldAgent:
         """Accept a task assignment from commander."""
         target_pos = msg.metadata.get('target_pos')
         task_type = msg.metadata.get('task_type', 'move_to')
+        provided_path = msg.metadata.get('path', [])
         self.current_task = {
             'type': task_type,
             'target_pos': target_pos,
         }
-        # Compute path
-        if target_pos:
+        # Prefer commander-provided path (planned on mental map).
+        if provided_path:
+            self.path = [tuple(p) for p in provided_path]
+            # Ensure path starts at current position for consistent following.
+            if self.path and self.path[0] != self.position:
+                self.path = [self.position] + self.path
+        elif target_pos:
+            # Fallback: local replanning if no path was provided.
             self.path = env.grid.shortest_path(self.position, target_pos) or []
+        else:
+            self.path = []
 
     def _follow_task(self, env) -> dict:
         """Follow current task path."""

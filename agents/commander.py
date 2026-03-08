@@ -8,6 +8,7 @@ import json
 import re
 from typing import Dict, List, Tuple, Optional, Any
 from .messages import Message, MessageBus, MessageType, make_task_assignment
+from env.grid import Victim
 
 try:
     from env.mental_map import MentalMap
@@ -49,21 +50,23 @@ class CommanderAgent:
                 if self.mental_map:
                     # Extract findings from message metadata
                     findings = msg.metadata.get('findings', {})
-                    agent_pos = msg.metadata.get('position')
-                    local_obs = msg.metadata.get('observation')
-                    obs_radius = msg.metadata.get('observation_radius', 1)
+                    # agent_pos = msg.metadata.get('position')
+                    # local_obs = msg.metadata.get('observation')
+                    # obs_radius = msg.metadata.get('observation_radius', 1)
                     current_step = msg.step
                     
                     # First, update from full local observation
-                    if agent_pos and local_obs:
-                        self.mental_map.update_from_observation(
-                            agent_pos, local_obs, obs_radius, current_step
-                        )
+                    # if agent_pos and local_obs:
+                    # if agent_pos:
+                    #     self.mental_map.update_from_observation(
+                    #         agent_pos, local_obs, obs_radius, current_step
+                    #     )
                     
                     # Then, process exact coordinate findings
                     # Update fires with exact coordinates
                     for fire_x, fire_y, intensity in findings.get('fires', []):
                         pos = (fire_x, fire_y)
+                        
                         if pos in self.mental_map.cells:
                             cell = self.mental_map.cells[pos]
                             cell.hazard = HazardType.FIRE
@@ -88,23 +91,40 @@ class CommanderAgent:
                     # Update collapsed buildings with exact coordinates
                     for collapse_x, collapse_y in findings.get('collapsed_buildings', []):
                         pos = (collapse_x, collapse_y)
+
                         if pos in self.mental_map.cells:
                             cell = self.mental_map.cells[pos]
-                            if cell.building_id is not None:
-                                self.mental_map.update_building_collapse(
-                                    cell.building_id, True, current_step
-                                )
-                            cell.explored = True
-                            cell.last_updated_step = current_step
+                            b_id = cell.building_id
+                            if b_id is not None:
+                                # self.mental_map.update_building_collapse(
+                                #     cell.building_id, True, current_step
+                                # )
+                                for b_pos, b_cell in self.mental_map.cells.items():
+                                    if b_cell.building_id == b_id:
+                                        b_cell.hazard = HazardType.DEBRIS
+                                        b_cell.explored = True
+                                        b_cell.last_updated_step = current_step
+                            # cell.explored = True
+                            # cell.last_updated_step = current_step
                     
                     # Update victim locations with exact coordinates
                     for victim_x, victim_y, count in findings.get('victims', []):
                         pos = (victim_x, victim_y)
-                        if pos in self.mental_map.cells:
-                            cell = self.mental_map.cells[pos]
-                            self.mental_map.update_victim_info(
-                                pos, count, current_step
-                            )
+                        cell = self.mental_map.cells[pos]
+                        
+                        # find the building of this cell - if any cell of the building has fire, then add
+                        if cell.building_id is not None:
+                            b_id = cell.building_id
+                            building_cells = [c for c in self.mental_map.cells.values() if c.building_id == b_id]
+                            if any(c.hazard == HazardType.FIRE for c in building_cells):
+                                cell.victims.extend([Victim(victim_id=-1, position=pos) for _ in range(count)])
+                            elif cell.hazard == HazardType.DEBRIS:
+                                cell.victims.extend([Victim(victim_id=-1, position=pos) for _ in range(count)])
+                        # if pos in self.mental_map.cells:
+                        #     cell = self.mental_map.cells[pos]
+                        #     self.mental_map.update_victim_info(
+                        #         pos, count, current_step
+                        #     )
                             cell.explored = True
                             cell.last_updated_step = current_step
 
@@ -218,8 +238,7 @@ class LLMCommander(CommanderAgent):
         for z in observation.get('zones', []):
             zones_summary += (
                 f"  Zone ({z['zone'][0]},{z['zone'][1]}): "
-                f"victims_alive={z['victims_alive']}, dead={z['victims_dead']}, "
-                f"rescued={z['victims_rescued']}, fires={z['fires']}, "
+                f"victims={z['victims']}, fires={z['fires']}, "
                 f"blocked={z['blocked_roads']}, collapsed={z['collapsed_buildings']}\n"
             )
 

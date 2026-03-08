@@ -201,12 +201,13 @@ class MentalMap:
             return
         
         mental_cell = self.cells[position]
+        mental_cell.explored = True
         mental_cell.last_updated_step = step
-        
-        # Simple heuristic: update victim count
-        # In a more sophisticated version, we could track individual victims
-        # For now, we just know approximately how many victims are at this location
-        # This is a simplified representation
+
+        # Keep a lightweight placeholder list to represent known victim count.
+        # (Commander needs counts, not individual identities.)
+        victim_count = max(0, int(victim_count))
+        mental_cell.victims = [Victim(victim_id=-1, position=position) for _ in range(victim_count)]
     
     def update_building_collapse(self, building_id: int, collapsed: bool, step: int):
         """
