@@ -11,20 +11,20 @@ seed: 42
 
 seismic:
   epicenter: [25, 25]
-  magnitude: 5.5
+  magnitude: 7.5
   decay_k: 0.08
   intensity_scale: 0.7
   aftershocks:
     - step: 10
-      magnitude: 4.0
+      magnitude: 7.0
   black_swans: []
 
 agents:
-  num_scouts: 3
+  num_scouts: 10
   num_firefighters: 3
   num_medics: 4
 
 controller_mode: hierarchical
-commander_type: llm
+commander_type: heuristic
 dropout_rate: 0.0
 message_mode: semantic

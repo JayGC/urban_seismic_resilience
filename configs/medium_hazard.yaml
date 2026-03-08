@@ -28,6 +28,6 @@ agents:
 
 controller_mode: hierarchical
 # commander_type: heuristic #llm
-commander_type: llm
+commander_type: heuristic
 dropout_rate: 0.0
 message_mode: semantic

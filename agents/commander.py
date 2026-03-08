@@ -9,27 +9,104 @@ import re
 from typing import Dict, List, Tuple, Optional, Any
 from .messages import Message, MessageBus, MessageType, make_task_assignment
 
+try:
+    from env.mental_map import MentalMap
+    from env.grid import HazardType
+except ImportError:
+    from ..env.mental_map import MentalMap
+    from ..env.grid import HazardType
 
 class CommanderAgent:
     """Base commander interface."""
 
     def __init__(self, agent_ids: List[str]):
         self.agent_ids = agent_ids
-        self.mental_map: Dict[str, dict] = {}  # agent_id -> last known info
+        self.agent_reports: Dict[str, dict] = {}  # agent_id -> last known info
+        self.mental_map: Optional[MentalMap] = None  # Commander's belief about the grid
         self.zone_data: List[dict] = []
         self.step = 0
         self.assignments: Dict[str, dict] = {}  # agent_id -> current assignment
         self.replan_log: List[dict] = []
+    
+    def initialize_mental_map(self, grid_width: int, grid_height: int, grid, seed: int = 42):
+        """Initialize mental map with same structure as actual grid."""
+        self.mental_map = MentalMap(grid_width, grid_height, seed)
+        # Initialize with static structural information (buildings, roads)
+        self.mental_map.initialize_from_grid(grid)
 
-    def update_mental_map(self, messages: List[Message]):
-        """Update internal model from agent reports."""
+    def update_mental_map(self, messages: List[Message], env=None):
+        """Update internal model from agent reports with exact coordinates."""
         for msg in messages:
             if msg.msg_type in (MessageType.REPORT, MessageType.EMERGENCY):
-                self.mental_map[msg.sender] = {
+                # Store agent report
+                self.agent_reports[msg.sender] = {
                     'content': msg.content,
                     'metadata': msg.metadata,
                     'step': msg.step,
                 }
+                
+                # Update mental map if we have it
+                if self.mental_map:
+                    # Extract findings from message metadata
+                    findings = msg.metadata.get('findings', {})
+                    agent_pos = msg.metadata.get('position')
+                    local_obs = msg.metadata.get('observation')
+                    obs_radius = msg.metadata.get('observation_radius', 1)
+                    current_step = msg.step
+                    
+                    # First, update from full local observation
+                    if agent_pos and local_obs:
+                        self.mental_map.update_from_observation(
+                            agent_pos, local_obs, obs_radius, current_step
+                        )
+                    
+                    # Then, process exact coordinate findings
+                    # Update fires with exact coordinates
+                    for fire_x, fire_y, intensity in findings.get('fires', []):
+                        pos = (fire_x, fire_y)
+                        if pos in self.mental_map.cells:
+                            cell = self.mental_map.cells[pos]
+                            cell.hazard = HazardType.FIRE
+                            cell.fire_intensity = intensity
+                            cell.explored = True
+                            cell.last_updated_step = current_step
+                    
+                    # Update blocked roads with exact coordinates
+                    for block_x, block_y in findings.get('blocked_roads', []):
+                        pos = (block_x, block_y)
+                        if pos in self.mental_map.cells:
+                            cell = self.mental_map.cells[pos]
+                            was_blocked = cell.blocked
+                            cell.blocked = True
+                            cell.explored = True
+                            cell.last_updated_step = current_step
+                            
+                            # Update graph if newly blocked
+                            if not was_blocked and pos in self.mental_map.graph:
+                                self.mental_map.graph.remove_node(pos)
+                    
+                    # Update collapsed buildings with exact coordinates
+                    for collapse_x, collapse_y in findings.get('collapsed_buildings', []):
+                        pos = (collapse_x, collapse_y)
+                        if pos in self.mental_map.cells:
+                            cell = self.mental_map.cells[pos]
+                            if cell.building_id is not None:
+                                self.mental_map.update_building_collapse(
+                                    cell.building_id, True, current_step
+                                )
+                            cell.explored = True
+                            cell.last_updated_step = current_step
+                    
+                    # Update victim locations with exact coordinates
+                    for victim_x, victim_y, count in findings.get('victims', []):
+                        pos = (victim_x, victim_y)
+                        if pos in self.mental_map.cells:
+                            cell = self.mental_map.cells[pos]
+                            self.mental_map.update_victim_info(
+                                pos, count, current_step
+                            )
+                            cell.explored = True
+                            cell.last_updated_step = current_step
 
     def decide(self, observation: dict, messages: List[Message],
                env=None) -> List[Message]:

@@ -20,7 +20,7 @@ def index():
 @app.route('/start', methods=['POST'])
 def start():
     global global_ctrl
-    config_path = os.path.join('configs', 'medium_hazard.yaml')
+    config_path = os.path.join('configs', 'low_hazard.yaml')
     if os.path.exists(config_path):
         with open(config_path) as f:
             config = yaml.safe_load(f)
@@ -67,7 +67,7 @@ def step():
         elif evt_type == 'BLACK_SWAN':
             logs.append(f"CRITICAL: Anomalous black swan event detected.")
 
-    # 4. Render Dark-Themed Map
+    # 4. Render Dark-Themed Map (Ground Truth)
     with plt.style.context('dark_background'):
         fig = global_ctrl.env.render(show=False)
         fig.patch.set_facecolor('#000000') 
@@ -78,10 +78,27 @@ def step():
         buf.seek(0)
         img_base64 = base64.b64encode(buf.read()).decode('utf-8')
 
+    # 5. Render Mental Map (Commander's Belief) if available
+    mental_map_img_base64 = None
+    if global_ctrl.commander and global_ctrl.commander.mental_map:
+        with plt.style.context('dark_background'):
+            fig = global_ctrl.env.render_mental_map(
+                global_ctrl.commander.mental_map,
+                show=False
+            )
+            fig.patch.set_facecolor('#000000')
+            
+            buf = io.BytesIO()
+            fig.savefig(buf, format="png", bbox_inches='tight', dpi=100, facecolor=fig.get_facecolor())
+            plt.close(fig)
+            buf.seek(0)
+            mental_map_img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+
     return jsonify({
         'done': done,
         'metrics': metrics,
         'image': img_base64,
+        'mental_map': mental_map_img_base64,
         'agents': {'scouts': scouts, 'firefighters': firefighters, 'medics': medics},
         'logs': logs
     })

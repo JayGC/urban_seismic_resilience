@@ -149,14 +149,16 @@ class Grid:
                     if pos in occupied:
                         valid = False
                         break
-                    # Keep a 1-cell road margin
-                    for mx, my in [(1, 0), (-1, 0), (0, 1), (0, -1),
-                                   (1, 1), (-1, -1), (1, -1), (-1, 1)]:
-                        if (bx + dx + mx, by + dy + my) in occupied:
-                            valid = False
+                    # Keep a 2-cell road margin
+                    # Enforce a 2-cell road margin around the building block
+                    for mx in range(-2, bw + 2):
+                        for my in range(-2, bh + 2):
+                            mxpos, mypos = bx + mx, by + my
+                            if (mxpos, mypos) in occupied and (mx, my) not in [(dx, dy) for dy in range(bh) for dx in range(bw)]:
+                                valid = False
+                                break
+                        if not valid:
                             break
-                    if not valid:
-                        break
                     cells_to_place.append(pos)
                 if not valid:
                     break
@@ -177,32 +179,47 @@ class Grid:
     def place_victims(self, count: int):
         """Place victims on building edge cells (reachable from adjacent roads)."""
         # Prefer building cells adjacent to at least one road
-        edge_cells = []
-        interior_cells = []
-        for (x, y), c in self.cells.items():
-            if c.cell_type == CellType.BUILDING and not c.blocked:
-                is_edge = False
-                for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-                    nb = (x + dx, y + dy)
-                    if nb in self.cells and self.cells[nb].cell_type == CellType.ROAD:
-                        is_edge = True
-                        break
-                if is_edge:
-                    edge_cells.append((x, y))
-                else:
-                    interior_cells.append((x, y))
+        #place victims in every building
+        # Place victims in every building
+        for building in self.buildings.values():
+            # Distribute victims across building cells
+            num_victims = max(1, count // len(self.buildings)) if self.buildings else 0
+            building_positions = building.cells
+            if building_positions:
+                chosen_positions = self.rng.choice(len(building_positions), 
+                                size=min(num_victims, len(building_positions)), 
+                                replace=False)
+            for idx in chosen_positions:
+                pos = building_positions[idx]
+                v = Victim(victim_id=self.victim_counter, position=pos)
+                self.victim_counter += 1
+                self.cells[pos].victims.append(v)
+        # edge_cells = []
+        # interior_cells = []
+        # for (x, y), c in self.cells.items():
+        #     if c.cell_type == CellType.BUILDING and not c.blocked:
+        #         is_edge = False
+        #         for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+        #             nb = (x + dx, y + dy)
+        #             if nb in self.cells and self.cells[nb].cell_type == CellType.ROAD:
+        #                 is_edge = True
+        #                 break
+        #         if is_edge:
+        #             edge_cells.append((x, y))
+        #         else:
+        #             interior_cells.append((x, y))
 
-        # Use edge cells first, then interior
-        available = edge_cells if edge_cells else interior_cells
-        if not available:
-            return
-        count = min(count, len(available))
-        chosen = self.rng.choice(len(available), size=count, replace=False)
-        for idx in chosen:
-            pos = available[idx]
-            v = Victim(victim_id=self.victim_counter, position=pos)
-            self.victim_counter += 1
-            self.cells[pos].victims.append(v)
+        # # Use edge cells first, then interior
+        # available = edge_cells if edge_cells else interior_cells
+        # if not available:
+        #     return
+        # count = min(count, len(available))
+        # chosen = self.rng.choice(len(available), size=count, replace=False)
+        # for idx in chosen:
+        #     pos = available[idx]
+        #     v = Victim(victim_id=self.victim_counter, position=pos)
+        #     self.victim_counter += 1
+        #     self.cells[pos].victims.append(v)
 
     def place_fires(self, count: int, intensity_range: Tuple[float, float] = (30, 80)):
         """Place fires randomly in buildings."""
@@ -241,7 +258,8 @@ class Grid:
 
     def apply_spillover(self, building: Building, radius_factor: float = 1.0):
         """Block road cells adjacent to a collapsed building based on height."""
-        radius = int(building.height * radius_factor)
+        # radius = int(building.height * radius_factor)
+        radius = 1
         for cx, cy in building.cells:
             for dx in range(-radius, radius + 1):
                 for dy in range(-radius, radius + 1):
@@ -268,14 +286,21 @@ class Grid:
                 pos = (x + dx, y + dy)
                 if pos in self.cells:
                     c = self.cells[pos]
-                    row.append({
+                    cell_info = {
                         'type': c.cell_type.name,
                         'blocked': c.blocked,
                         'hazard': c.hazard.name,
                         'fire_intensity': c.fire_intensity,
                         'num_victims': len([v for v in c.victims if not v.rescued]),
                         'explored': c.explored,
-                    })
+                        'building_id': c.building_id,
+                    }
+                    # Add collapse info if it's a building
+                    if c.cell_type == CellType.BUILDING and c.building_id is not None:
+                        building = self.buildings.get(c.building_id)
+                        if building:
+                            cell_info['collapsed'] = building.collapsed
+                    row.append(cell_info)
                 else:
                     row.append({'type': 'OUT_OF_BOUNDS'})
             obs.append(row)

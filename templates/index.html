@@ -159,9 +159,21 @@
         </div>
 
         <div class="panel" style="padding-bottom: 10px;">
-            <div id="map-container">
-                <img id="sim-map" src="" style="display: none;" />
-                <span id="map-placeholder" style="color: #475569;">AWAITING SIMULATION INITIALIZATION...</span>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; min-height: 0; margin-bottom: 15px;">
+                <div style="display: flex; flex-direction: column;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Ground Truth (Actual)</h3>
+                    <div id="map-container" style="flex: 1; min-height: 300px;">
+                        <img id="sim-map" src="" style="display: none;" />
+                        <span id="map-placeholder" style="color: #475569;">AWAITING SIMULATION INITIALIZATION...</span>
+                    </div>
+                </div>
+                <div style="display: flex; flex-direction: column;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Mental Map (Commander's Belief)</h3>
+                    <div id="mental-map-container" style="flex: 1; background: #000; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-color); display: flex; justify-content: center; align-items: center; min-height: 300px;">
+                        <img id="mental-map" src="" style="display: none; max-width: 100%; max-height: 100%; object-fit: contain;" />
+                        <span id="mental-map-placeholder" style="color: #475569;">MENTAL MAP WILL APPEAR HERE...</span>
+                    </div>
+                </div>
             </div>
             <div class="controls">
                 <button id="btn-start" onclick="startSim()">Initialize</button>
@@ -220,8 +232,10 @@
                 isRunning = true;
                 document.getElementById('sim-map').style.display = 'block';
                 document.getElementById('map-placeholder').style.display = 'none';
+                document.getElementById('mental-map').style.display = 'block';
+                document.getElementById('mental-map-placeholder').style.display = 'none';
                 document.getElementById('log-container').innerHTML = '';
-                addLog('Simulation initialized. Earthqake event triggered.', '000');
+                addLog('Simulation initialized. Earthquake event triggered.', '000');
                 setStatus('RUNNING', '#22c55e');
                 stepSim();
             }
@@ -304,8 +318,13 @@
 
                 if (data.error) { pauseSim(); return; }
 
-                // Map updates
+                // Map updates - Ground Truth
                 document.getElementById('sim-map').src = "data:image/png;base64," + data.image;
+                
+                // Mental Map updates - if available
+                if (data.mental_map) {
+                    document.getElementById('mental-map').src = "data:image/png;base64," + data.mental_map;
+                }
 
                 // Metrics
                 const m = data.metrics;

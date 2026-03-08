@@ -453,3 +453,86 @@ class UrbanDisasterEnv:
         else:
             plt.close(fig)
         return fig
+
+    def render_mental_map(self, mental_map, show: bool = True, save_path: Optional[str] = None,
+                         figsize: Tuple[int, int] = (12, 12)):
+        """Render the commander's mental map (beliefs about the grid)."""
+        import matplotlib.pyplot as plt
+        import matplotlib.patches as mpatches
+        from matplotlib.colors import ListedColormap
+
+        w, h = mental_map.width, mental_map.height
+        img = np.zeros((h, w, 3))
+
+        # Base colors - showing structural layout known from city maps
+        # Dynamic info (blockages, collapses) only update when observed
+        for (x, y), cell in mental_map.cells.items():
+            # Show structural information (always visible - known from city maps)
+            if cell.cell_type == CellType.BUILDING:
+                # Buildings are gray-blue, but dark gray if observed to be collapsed
+                if cell.explored and cell.building_id is not None and mental_map.buildings[cell.building_id].collapsed:
+                    img[y, x] = [0.3, 0.3, 0.3]  # Collapsed building (observed)
+                else:
+                    img[y, x] = [0.6, 0.6, 0.7]  # Building (default/not yet observed collapse status)
+            elif cell.cell_type == CellType.ROAD:
+                # Roads are light, but brown if observed to be blocked
+                if cell.explored and cell.blocked is True:
+                    img[y, x] = [0.5, 0.4, 0.3]  # Blocked road (observed)
+                else:
+                    img[y, x] = [0.9, 0.9, 0.85]  # Road (default/not yet observed blockage)
+            else:
+                # Unknown structure type (shouldn't happen after init)
+                img[y, x] = [0.1, 0.1, 0.1]
+
+            # Hazard overlays (only show if explored)
+            if cell.explored:
+                if cell.hazard == HazardType.FIRE:
+                    intensity = cell.fire_intensity / 100.0 if cell.fire_intensity else 0
+                    img[y, x] = [1.0, 0.3 * (1 - intensity), 0.0]  # Fire (observed)
+                elif cell.hazard == HazardType.DEBRIS:
+                    img[y, x] = [0.4, 0.35, 0.3]
+
+                # Victims (only show if explored/observed)
+                if len(cell.victims) > 0:
+                    img[y, x] = [1.0, 1.0, 0.0]  # Yellow for known victims
+
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        ax.imshow(img, origin='lower', interpolation='nearest')
+
+        # Agent markers (if available)
+        if hasattr(self, 'agent_positions'):
+            colors = {'scout': 'cyan', 'firefighter': 'red', 'medic': 'green', 'commander': 'white'}
+            for agent_id, pos in self.agent_positions.items():
+                atype = agent_id.split('_')[0] if '_' in agent_id else 'scout'
+                color = colors.get(atype, 'cyan')
+                ax.plot(pos[0], pos[1], 'o', color=color, markersize=8,
+                       markeredgecolor='black', markeredgewidth=1)
+
+        # Get stats for title
+        exploration_pct = mental_map.get_explored_fraction() * 100
+        known_victims = len(mental_map.get_all_known_victims())
+
+        ax.set_title(f'Commander\'s Mental Map | Step {mental_map.current_step} | '
+                     f'Exploration: {exploration_pct:.1f}% | Known Victims: {known_victims}')
+
+        # Legend
+        legend_items = [
+            mpatches.Patch(color=[0.9, 0.9, 0.85], label='Road (Known from maps)'),
+            mpatches.Patch(color=[0.5, 0.4, 0.3], label='Road Blocked (Observed)'),
+            mpatches.Patch(color=[0.6, 0.6, 0.7], label='Building (Known from maps)'),
+            mpatches.Patch(color=[0.3, 0.3, 0.3], label='Building Collapsed (Observed)'),
+            mpatches.Patch(color=[1.0, 0.3, 0.0], label='Fire (Observed)'),
+            mpatches.Patch(color=[1.0, 1.0, 0.0], label='Victims (Observed)'),
+        ]
+        ax.legend(handles=legend_items, loc='upper right', fontsize=8)
+
+        ax.set_xlim(-0.5, w - 0.5)
+        ax.set_ylim(-0.5, h - 0.5)
+
+        if save_path:
+            fig.savefig(save_path, dpi=150, bbox_inches='tight')
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+        return fig

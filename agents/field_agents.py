@@ -108,22 +108,64 @@ class FieldAgent:
         return {'type': 'noop'}
 
     def _make_report(self, obs: dict) -> Message:
-        """Generate a report message."""
+        """Generate a detailed report message with exact coordinates of findings."""
         local = obs.get('local_grid', [])
-        victims = 0
-        fires = 0
-        blocked = 0
-        for row in local:
-            for cell in row:
-                if isinstance(cell, dict):
-                    victims += cell.get('num_victims', 0)
+        
+        # Collect exact coordinates of findings
+        fires = []  # List of fire positions
+        victims = []  # List of victim positions
+        blockages = []  # List of blocked road positions
+        collapses = []  # List of collapsed building positions
+        
+        radius = self.observation_radius
+        agent_x, agent_y = self.position
+        
+        # Parse local observation grid with exact coordinates
+        for dy_idx, row in enumerate(local):
+            for dx_idx, cell in enumerate(row):
+                if isinstance(cell, dict) and cell.get('type') != 'OUT_OF_BOUNDS':
+                    # Convert observation indices to absolute coordinates
+                    dx = dx_idx - radius
+                    dy = dy_idx - radius
+                    abs_x = agent_x + dx
+                    abs_y = agent_y + dy
+                    
+                    # Record exact coordinates of hazards/blockages
                     if cell.get('hazard') == 'FIRE':
-                        fires += 1
-                    if cell.get('blocked', False):
-                        blocked += 1
+                        fires.append((abs_x, abs_y, cell.get('fire_intensity', 0)))
+                    
+                    if cell.get('num_victims', 0) > 0:
+                        victims.append((abs_x, abs_y, cell.get('num_victims', 0)))
+                    
+                    if cell.get('blocked', False) and cell.get('type') == 'ROAD':
+                        blockages.append((abs_x, abs_y))
+                    
+                    # Check for collapsed buildings (inferred from structure)
+                    if cell.get('type') == 'BUILDING' and cell.get('collapsed', False):
+                        collapses.append((abs_x, abs_y))
+        
+        # Build detailed metadata with exact coordinates
+        report_metadata = {
+            'position': self.position,
+            'observation': local,
+            'observation_radius': self.observation_radius,
+            'findings': {
+                'fires': fires,  # [(x, y, intensity), ...]
+                'victims': victims,  # [(x, y, count), ...]
+                'blocked_roads': blockages,  # [(x, y), ...]
+                'collapsed_buildings': collapses,  # [(x, y), ...]
+            },
+            'summary': {
+                'num_victims_nearby': sum(v[2] for v in victims),
+                'fires_nearby': len(fires),
+                'blocked_nearby': len(blockages),
+                'collapsed_nearby': len(collapses),
+            }
+        }
+        
         return make_report(
             self.agent_id, self.position,
-            {'num_victims_nearby': victims, 'fires_nearby': fires, 'blocked_nearby': blocked},
+            report_metadata,
             obs.get('step', 0)
         )
 

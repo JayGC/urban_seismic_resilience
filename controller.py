@@ -40,6 +40,15 @@ class SimulationController:
         """Initialize environment and agents."""
         self.env.reset()
         self._create_agents()
+        
+        # Initialize commander's mental map after environment is set up
+        if self.commander and self.env.grid:
+            self.commander.initialize_mental_map(
+                self.env.grid.width,
+                self.env.grid.height,
+                self.env.grid,
+                seed=self.config.get('seed', 42)
+            )
 
     def _create_agents(self):
         """Create field agents and commander based on config."""
