@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Command Center - Urban Seismic Resilience</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --panel-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-blue: #38bdf8;
+            --accent-red: #ef4444;
+            --accent-green: #22c55e;
+            --accent-yellow: #eab308;
+            --border-color: #334155;
+        }
+
+        body { 
+            font-family: 'Consolas', 'Courier New', monospace; 
+            background: var(--bg-dark); 
+            color: var(--text-main); 
+            margin: 0; 
+            padding: 15px; 
+            height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        header h1 { margin: 0; font-size: 20px; color: var(--accent-blue); text-transform: uppercase; letter-spacing: 2px; }
+        
+        .status-badge {
+            padding: 5px 15px; border-radius: 4px; font-weight: bold; background: #475569;
+        }
+
+        #dashboard {
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .panel h2 {
+            font-size: 14px; color: var(--text-muted); text-transform: uppercase; margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; margin-bottom: 15px;
+        }
+
+        /* Left Column: Agents & Resources */
+        .agent-stat { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 16px; align-items: center;}
+        .dot { height: 12px; width: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .dot.scout { background-color: var(--accent-blue); }
+        .dot.fire { background-color: var(--accent-red); }
+        .dot.medic { background-color: var(--accent-green); }
+        
+        .building-stat { margin-top: 20px; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+
+        /* Center Column: Map & Controls */
+        #map-container { flex: 1; display: flex; justify-content: center; align-items: center; background: #000; border-radius: 6px; overflow: hidden; border: 1px solid var(--border-color); margin-bottom: 15px; min-height: 400px;}
+        #map-container img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        
+        .controls { display: flex; gap: 10px; justify-content: center; }
+        button { background: #334155; color: white; border: 1px solid #475569; padding: 10px 20px; cursor: pointer; border-radius: 4px; font-family: inherit; font-weight: bold; text-transform: uppercase; transition: 0.2s;}
+        button:hover { background: #475569; }
+        #btn-start { background: #0369a1; border-color: #0284c7; }
+        #btn-start:hover { background: #0284c7; }
+        #btn-pause { background: #991b1b; border-color: #b91c1c; }
+
+        /* Right Column: Victims & Logs */
+        .victim-card { background: #0f172a; border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; margin-bottom: 10px; text-align: center;}
+        .victim-card .num { font-size: 24px; font-weight: bold; margin: 5px 0; }
+        .v-rescued { color: var(--accent-green); }
+        .v-alive { color: var(--accent-yellow); }
+        .v-dead { color: var(--accent-red); }
+
+        #log-container { flex: 1; background: #000; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); overflow-y: auto; font-size: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px;}
+        .log-entry { padding: 4px 0; border-bottom: 1px dotted #333; }
+        .log-time { color: var(--accent-blue); margin-right: 5px; }
+
+        /* For LLm Thinking in the UI */
+        /* Loading Spinner */
+        .spinner-container {
+            display: none; /* Hidden by default */
+            align-items: center;
+            color: var(--accent-yellow);
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        .loader {
+            border: 2px solid #334155;
+            border-top: 2px solid var(--accent-yellow);
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- <header>
+        <h1>SYS-COM // Urban Resilience</h1>
+        <div style="display: flex; gap: 20px; align-items: center;">
+            <div>STEP: <span id="hdr-step" style="color: var(--accent-blue); font-weight: bold;">000</span></div>
+            <div id="hdr-status" class="status-badge">OFFLINE</div>
+        </div>
+    </header> -->
+
+    <!-- Updated header for LLM thinking... -->
+    <header>
+        <h1>SYS-COM // Urban Resilience</h1>
+        <div style="display: flex; gap: 20px; align-items: center;">
+            <div id="ai-thinking" class="spinner-container">
+                <div class="loader"></div> LLM THINKING...
+            </div>
+            
+            <div>STEP: <span id="hdr-step" style="color: var(--accent-blue); font-weight: bold;">000</span></div>
+            <div id="hdr-status" class="status-badge">OFFLINE</div>
+        </div>
+    </header>
+
+    <div id="dashboard">
+        <div class="panel">
+            <h2>Active Units</h2>
+            <div class="agent-stat"><span style="display:flex; align-items:center;"><span class="dot scout"></span>Scouts</span> <span id="cnt-scouts">0</span></div>
+            <div class="agent-stat"><span style="display:flex; align-items:center;"><span class="dot fire"></span>Firefighters</span> <span id="cnt-fire">0</span></div>
+            <div class="agent-stat"><span style="display:flex; align-items:center;"><span class="dot medic"></span>Medics</span> <span id="cnt-medics">0</span></div>
+            
+            <h2 style="margin-top: 30px;">Infrastructure</h2>
+            <div class="stat-row"><span>Active Fires</span> <span id="stat-fires" style="color: var(--accent-red); font-weight:bold;">0</span></div>
+            <div class="stat-row"><span>Collapsed Bldgs</span> <span id="stat-collapses" style="color: var(--accent-yellow); font-weight:bold;">0</span></div>
+            <div class="stat-row"><span>Blocked Roads</span> <span id="stat-roads">0</span></div>
+        </div>
+
+        <div class="panel" style="padding-bottom: 10px;">
+            <div id="map-container">
+                <img id="sim-map" src="" style="display: none;" />
+                <span id="map-placeholder" style="color: #475569;">AWAITING SIMULATION INITIALIZATION...</span>
+            </div>
+            <div class="controls">
+                <button id="btn-start" onclick="startSim()">Initialize</button>
+                <button id="btn-pause" onclick="pauseSim()">Pause</button>
+                <button onclick="resumeSim()">Resume</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Victim Status</h2>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <div class="victim-card" style="flex: 1;">
+                    <div style="font-size:11px; color:#94a3b8;">RESCUED</div>
+                    <div class="num v-rescued" id="v-rescued">0</div>
+                </div>
+                <div class="victim-card" style="flex: 1;">
+                    <div style="font-size:11px; color:#94a3b8;">ALIVE (TRAPPED)</div>
+                    <div class="num v-alive" id="v-alive">0</div>
+                </div>
+                <div class="victim-card" style="flex: 1;">
+                    <div style="font-size:11px; color:#94a3b8;">CASUALTIES</div>
+                    <div class="num v-dead" id="v-dead">0</div>
+                </div>
+            </div>
+
+            <h2>Live Event Log</h2>
+            <div id="log-container">
+                <div class="log-entry"><span class="log-time">[SYS]</span> System ready. Awaiting user start...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isRunning = false;
+        let updateDelayMs = 300; 
+
+        function addLog(msg, time) {
+            const logBox = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[T+${time}]</span> ${msg}`;
+            logBox.appendChild(entry);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function setStatus(text, color) {
+            const el = document.getElementById('hdr-status');
+            el.innerText = text;
+            el.style.color = color;
+        }
+
+        async function startSim() {
+            setStatus('INITIALIZING...', '#eab308');
+            const res = await fetch('/start', {method: 'POST'});
+            if(res.ok) {
+                isRunning = true;
+                document.getElementById('sim-map').style.display = 'block';
+                document.getElementById('map-placeholder').style.display = 'none';
+                document.getElementById('log-container').innerHTML = '';
+                addLog('Simulation initialized. Earthqake event triggered.', '000');
+                setStatus('RUNNING', '#22c55e');
+                stepSim();
+            }
+        }
+
+        function pauseSim() {
+            isRunning = false;
+            setStatus('PAUSED', '#ef4444');
+        }
+
+        function resumeSim() {
+            if(!isRunning && document.getElementById('hdr-status').innerText !== 'COMPLETED') {
+                isRunning = true;
+                setStatus('RUNNING', '#22c55e');
+                stepSim();
+            }
+        }
+
+        async function stepSim() {
+            if (!isRunning) return;
+            try {
+                const res = await fetch('/step');
+                const data = await res.json();
+
+                if (data.error) { pauseSim(); return; }
+
+                // Map updates
+                document.getElementById('sim-map').src = "data:image/png;base64," + data.image;
+
+                // Metrics
+                const m = data.metrics;
+                document.getElementById('hdr-step').innerText = String(m.step).padStart(3, '0');
+                
+                // Agents
+                document.getElementById('cnt-scouts').innerText = data.agents.scouts;
+                document.getElementById('cnt-fire').innerText = data.agents.firefighters;
+                document.getElementById('cnt-medics').innerText = data.agents.medics;
+
+                // Infrastructure
+                document.getElementById('stat-fires').innerText = m.active_fires;
+                document.getElementById('stat-collapses').innerText = m.collapsed_buildings;
+                document.getElementById('stat-roads').innerText = m.blocked_roads;
+
+                // Victims
+                document.getElementById('v-rescued').innerText = m.rescued;
+                document.getElementById('v-alive').innerText = m.alive_unrescued;
+                document.getElementById('v-dead').innerText = m.dead;
+
+                // Logs
+                data.logs.forEach(logText => {
+                    addLog(logText, String(m.step).padStart(3, '0'));
+                });
+
+                if (data.done) {
+                    isRunning = false;
+                    setStatus('COMPLETED', '#94a3b8');
+                    addLog('Simulation reached terminal state.', String(m.step).padStart(3, '0'));
+                } else {
+                    setTimeout(stepSim, updateDelayMs);
+                }
+            } catch (e) {
+                console.error("Connection lost:", e);
+                pauseSim();
+                setStatus('CONNECTION LOST', '#ef4444');
+            }
+        }
+
+        // For LLM thinking
+        async function stepSim() {
+            if (!isRunning) return;
+            try {
+                // Show the spinner before we ask the backend to step
+                document.getElementById('ai-thinking').style.display = 'flex';
+                
+                const res = await fetch('/step');
+                const data = await res.json();
+
+                // Hide the spinner as soon as we get the data
+                document.getElementById('ai-thinking').style.display = 'none';
+
+                if (data.error) { pauseSim(); return; }
+
+                // Map updates
+                document.getElementById('sim-map').src = "data:image/png;base64," + data.image;
+
+                // Metrics
+                const m = data.metrics;
+                document.getElementById('hdr-step').innerText = String(m.step).padStart(3, '0');
+                
+                // Agents
+                document.getElementById('cnt-scouts').innerText = data.agents.scouts;
+                document.getElementById('cnt-fire').innerText = data.agents.firefighters;
+                document.getElementById('cnt-medics').innerText = data.agents.medics;
+
+                // Infrastructure
+                document.getElementById('stat-fires').innerText = m.active_fires;
+                document.getElementById('stat-collapses').innerText = m.collapsed_buildings;
+                document.getElementById('stat-roads').innerText = m.blocked_roads;
+
+                // Victims
+                document.getElementById('v-rescued').innerText = m.rescued;
+                document.getElementById('v-alive').innerText = m.alive_unrescued;
+                document.getElementById('v-dead').innerText = m.dead;
+
+                // Logs
+                data.logs.forEach(logText => {
+                    addLog(logText, String(m.step).padStart(3, '0'));
+                });
+
+                if (data.done) {
+                    isRunning = false;
+                    setStatus('COMPLETED', '#94a3b8');
+                    addLog('Simulation reached terminal state.', String(m.step).padStart(3, '0'));
+                } else {
+                    setTimeout(stepSim, updateDelayMs);
+                }
+            } catch (e) {
+                console.error("Connection lost:", e);
+                document.getElementById('ai-thinking').style.display = 'none'; // Hide on error
+                pauseSim();
+                setStatus('CONNECTION LOST', '#ef4444');
+            }
+        }
+        
+    </script>
+</body>
+</html>

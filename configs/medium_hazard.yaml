@@ -27,6 +27,7 @@ agents:
   num_medics: 4
 
 controller_mode: hierarchical
+# commander_type: heuristic #llm
 commander_type: llm
 dropout_rate: 0.0
 message_mode: semantic
