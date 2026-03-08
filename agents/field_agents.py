@@ -49,8 +49,10 @@ class FieldAgent:
         else:
             action = self._autonomous_action(obs, env)
 
-        # Send periodic reports
-        if self.total_steps % 3 == 0:
+        # Reporting cadence:
+        # - Scouts report every step (for commander mental-map updates)
+        # - Other agents keep periodic reporting
+        if self.agent_type == 'scout' or self.total_steps % 3 == 0:
             report = self._make_report(obs)
             outgoing.append(report)
 

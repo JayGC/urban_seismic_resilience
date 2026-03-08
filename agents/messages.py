@@ -137,9 +137,12 @@ class MessageBus:
 
 def make_report(agent_id: str, position: tuple, observations: dict, step: int) -> Message:
     """Create a standard field agent report."""
-    victims = observations.get('num_victims_nearby', 0)
-    fires = observations.get('fires_nearby', 0)
-    blocked = observations.get('blocked_nearby', 0)
+    # Backward/forward compatible summary extraction.
+    # Newer reports may provide a nested "summary" dict and rich metadata.
+    summary = observations.get('summary', observations)
+    victims = summary.get('num_victims_nearby', observations.get('num_victims_nearby', 0))
+    fires = summary.get('fires_nearby', observations.get('fires_nearby', 0))
+    blocked = summary.get('blocked_nearby', observations.get('blocked_nearby', 0))
 
     content = (f"Agent {agent_id} at ({position[0]},{position[1]}): "
                f"{victims} victims, {fires} fires, {blocked} blocked roads nearby.")
@@ -150,7 +153,8 @@ def make_report(agent_id: str, position: tuple, observations: dict, step: int) -
         msg_type=MessageType.REPORT,
         content=content,
         step=step,
-        metadata={'position': position, 'victims': victims, 'fires': fires},
+        # Preserve full metadata payload (position, observation, radius, findings, etc.)
+        metadata=observations,
     )
 
 
