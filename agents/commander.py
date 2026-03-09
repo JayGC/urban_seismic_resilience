@@ -488,13 +488,28 @@ class LLMCommander(CommanderAgent):
         free_agents = self._get_free_agents()
         if not free_agents:
             print("No free agents available for new tasks. Skipping LLM prompt.")
-            return
+            return ""
         agents_info = ""
         for aid in free_agents:
             if aid in agent_positions:
                 pos = agent_positions[aid]
                 atype = self._get_agent_type(aid)
                 agents_info += f"  {aid} ({atype}) at ({pos[0]},{pos[1]}) - AVAILABLE\n"
+
+        # Collect exact known victim and fire locations from mental map
+        victim_locations_str = ""
+        fire_locations_str = ""
+        if self.mental_map:
+            known_victims = self.mental_map.get_all_known_victims()
+            if known_victims:
+                known_victims.sort(key=lambda v: v[2], reverse=True)
+                for vx, vy, count in known_victims:
+                    victim_locations_str += f"  ({vx},{vy}): {count} victim(s)\n"
+            known_fires = self.mental_map.get_all_known_fires()
+            if known_fires:
+                known_fires.sort(key=lambda f: f[2], reverse=True)
+                for fx, fy, intensity in known_fires:
+                    fire_locations_str += f"  ({fx},{fy}): intensity={intensity:.1f}\n"
 
         prompt = f"""You are the Commander of an urban disaster response operation after an earthquake.
 Your role is to assign tasks to field agents to maximize civilian survival.
@@ -504,6 +519,12 @@ CURRENT STEP: {observation.get('step', 0)}
 ZONE SUMMARIES (noisy estimates from environment):
 {zones_summary}
 
+KNOWN VICTIM LOCATIONS (exact coordinates from field reports):
+{victim_locations_str if victim_locations_str else "  None discovered yet."}
+
+KNOWN FIRE LOCATIONS (exact coordinates from field reports):
+{fire_locations_str if fire_locations_str else "  None discovered yet."}
+
 FREE AGENTS AVAILABLE FOR NEW TASKS:
 {agents_info if agents_info else "  No free agents available."}
 
@@ -512,9 +533,8 @@ RECENT AGENT REPORTS:
 
 AGENT TYPES AND CAPABILITIES:
 - scout_*: Can scan/explore areas, fast movement, observation radius=2
-- firefighter_*: Can extinguish fires and rescue victims. Can clear debris.
-- medic_*: can treat vcitims where debris is present and rescue victims. Can clear debris but not extinguish fires.
-
+- firefighter_*: Can extinguish fires and rescue victims, send them to fire cells and victim cells where/near which fire is present
+- medic_*: Can rescue and treat victims, send to debris cells(collapsed buildings) where victims are present
 
 Respond with a JSON array of task assignments. Each assignment:
 {{
@@ -567,7 +587,11 @@ Respond ONLY with the JSON array, no other text."""
         print(f"{'-'*60}")
 
         commands = self._parse_assignments(assignments)
-        
+
+        # Snap zone-level LLM targets to exact victim/fire coordinates
+        if commands:
+            commands = [self._refine_target(cmd, agent_positions) for cmd in commands]
+
         # Attach paths to all commands
         if commands:
             commands = self._attach_paths_to_commands(commands, agent_positions)
@@ -579,14 +603,7 @@ Respond ONLY with the JSON array, no other text."""
                   f"at {cmd.metadata.get('target_pos')} (path={path_len} steps)")
         print(f"{'='*60}\n")
 
-        if commands:
-            return commands
-        # except Exception as e:
-        #     pass  # Fall through to heuristic
-
-        # Fallback
-        # self.fallback.agent_ids = self.agent_ids
-        # return self.fallback.decide(observation, messages, env)
+        return commands if commands else []
 
     # def _call_llm(self, prompt: str) -> str:
     #     """Call the LLM API. Override for different providers."""
@@ -628,6 +645,7 @@ Respond ONLY with the JSON array, no other text."""
         self.llm_call_count += 1
 
         client = OpenAI(
+            timeout=120.0,
             api_key=self.api_key,
             base_url="https://tritonai-api.ucsd.edu",
         )
@@ -742,6 +760,49 @@ Respond ONLY with the JSON array, no other text."""
             }
 
         return commands
+
+    def _refine_target(self, cmd: Message, agent_positions: Dict[str, Tuple[int, int]]) -> Message:
+        """Snap LLM zone-level target to nearest actual victim/fire from mental map."""
+        if not self.mental_map:
+            return cmd
+
+        task_type = cmd.metadata.get('task_type', '')
+        target_pos = cmd.metadata.get('target_pos')
+        if not target_pos:
+            return cmd
+
+        tx, ty = target_pos
+
+        if task_type == 'rescue_victims':
+            known_victims = self.mental_map.get_all_known_victims()
+            if known_victims:
+                # Pick nearest victim cell, weighted by count (prefer higher count on ties)
+                best = min(
+                    known_victims,
+                    key=lambda v: (abs(v[0] - tx) + abs(v[1] - ty), -v[2])
+                )
+                new_pos = (best[0], best[1])
+                if new_pos != target_pos:
+                    print(f"[LLM Commander] Refined {cmd.receiver} rescue target "
+                          f"({tx},{ty}) -> ({new_pos[0]},{new_pos[1]}) "
+                          f"({best[2]} victims)")
+                    cmd.metadata['target_pos'] = new_pos
+
+        elif task_type == 'extinguish_fire':
+            known_fires = self.mental_map.get_all_known_fires()
+            if known_fires:
+                best = min(
+                    known_fires,
+                    key=lambda f: (abs(f[0] - tx) + abs(f[1] - ty), -f[2])
+                )
+                new_pos = (best[0], best[1])
+                if new_pos != target_pos:
+                    print(f"[LLM Commander] Refined {cmd.receiver} fire target "
+                          f"({tx},{ty}) -> ({new_pos[0]},{new_pos[1]}) "
+                          f"(intensity={best[2]:.1f})")
+                    cmd.metadata['target_pos'] = new_pos
+
+        return cmd
 
     def get_stats(self) -> dict:
         return {
