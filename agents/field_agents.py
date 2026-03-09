@@ -298,20 +298,100 @@ class ScoutAgent(FieldAgent):
 
     def __init__(self, agent_id: str, position: Tuple[int, int]):
         super().__init__(agent_id, 'scout', position, observation_radius=2)
+        self.zone_bounds: Optional[Tuple[int, int, int, int]] = None  # (x_min, y_min, x_max, y_max)
+
+    def _accept_task(self, msg: Message, env):
+        """Accept task — for search_zone tasks, store zone bounds."""
+        # Store zone bounds before calling parent _accept_task
+        self.zone_bounds = msg.metadata.get('zone_bounds')
+        super()._accept_task(msg, env)
+        if self.zone_bounds:
+            x0, y0, x1, y1 = self.zone_bounds
+            print(f"  OK [{self.agent_id}] Zone bounds set: ({x0},{y0})-({x1},{y1})")
+
+    def _follow_task(self, env) -> dict:
+        """Override: for search_zone tasks, systematically explore the entire zone."""
+        # For non-zone tasks, use default behaviour
+        if not self.zone_bounds or (self.current_task and
+                self.current_task.get('type', '') != 'search_zone'):
+            return super()._follow_task(env)
+
+        # --- Zone exploration logic ---
+        # If we still have a path, keep following it
+        if self.path and len(self.path) > 1:
+            next_pos = self.path[1]
+            if next_pos in env.grid.cells:
+                next_cell = env.grid.cells[next_pos]
+                if next_cell.cell_type.name == 'ROAD' and next_cell.blocked:
+                    print(f"  XX [{self.agent_id}] Obstacle at {next_pos} during zone sweep, replanning")
+                    self.path = []
+                    # Fall through to find next unexplored cell
+                else:
+                    dx = next_pos[0] - self.position[0]
+                    dy = next_pos[1] - self.position[1]
+                    self.path = self.path[1:]
+                    return {'type': 'move', 'dx': dx, 'dy': dy}
+
+        # Path exhausted — find next unexplored road cell in the zone
+        next_target = self._get_next_unexplored_in_zone(env)
+        if next_target:
+            self.path = env.grid.shortest_path(self.position, next_target) or []
+            if not self.path:
+                self.path = self._path_to_nearest_reachable(env, next_target)
+            if self.path and len(self.path) > 1:
+                next_pos = self.path[1]
+                dx = next_pos[0] - self.position[0]
+                dy = next_pos[1] - self.position[1]
+                self.path = self.path[1:]
+                return {'type': 'move', 'dx': dx, 'dy': dy}
+            # Can't reach this cell — skip it and scan in place
+            return {'type': 'scan'}
+
+        # All reachable road cells in zone explored — task complete
+        x0, y0, x1, y1 = self.zone_bounds
+        print(f"  OK [{self.agent_id}] Zone ({x0},{y0})-({x1},{y1}) fully explored, task complete")
+        self.current_task = None
+        self.path = []
+        self.zone_bounds = None
+        return {'type': 'scan'}
+
+    def _get_next_unexplored_in_zone(self, env) -> Optional[Tuple[int, int]]:
+        """BFS from current position to find nearest unexplored road cell within zone bounds."""
+        if not self.zone_bounds:
+            return None
+        x_min, y_min, x_max, y_max = self.zone_bounds
+
+        if self.position not in env.grid.graph:
+            return None
+        visited = set()
+        queue = [self.position]
+        visited.add(self.position)
+
+        while queue:
+            current = queue.pop(0)
+            # Check if this cell is in the zone and unexplored
+            cx, cy = current
+            if (x_min <= cx < x_max and y_min <= cy < y_max
+                    and not env.grid.cells[current].explored):
+                return current
+            for neighbor in env.grid.graph.neighbors(current):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+        return None
 
     def _autonomous_action(self, obs: dict, env) -> dict:
-        # Prioritize unexplored areas
+        """When no zone task is active, explore nearest unexplored cell globally."""
         unexplored = self._find_nearest_unexplored(env)
         if unexplored:
             return self._move_toward(unexplored, env)
-        # Scan current area
         if not env.grid.cells.get(self.position, None) or \
            not env.grid.cells[self.position].explored:
             return {'type': 'scan'}
         return self._random_move(env)
 
     def _find_nearest_unexplored(self, env) -> Optional[Tuple[int, int]]:
-        """BFS for nearest unexplored road cell."""
+        """BFS for nearest unexplored road cell (global, no zone restriction)."""
         if self.position not in env.grid.graph:
             return None
         visited = set()

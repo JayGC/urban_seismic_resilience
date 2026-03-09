@@ -2304,3 +2304,5 @@ Respond ONLY with the JSON array, no other text.
   .. [medic_2] pos=(8, 20) action=noop task=none path_len=0
   .. [medic_3] pos=(39, 31) action=move task=active: rescue_victims path_len=10
 127.0.0.1 - - [08/Mar/2026 17:54:34] "GET /step HTTP/1.1" 200 -
+/opt/homebrew/Caskroom/miniforge/base/envs/urban/lib/python3.14/multiprocessing/resource_tracker.py:396: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown: {'/mp-ippb7ca5'}
+  warnings.warn(

@@ -414,12 +414,17 @@ class HeuristicCommander(CommanderAgent):
         for zone in unexplored_zones:
             if not scouts:
                 break
-            target = (zone['zone'][0] + 5, zone['zone'][1] + 5)
+            zx, zy = zone['zone']
+            zone_size = 10
+            zone_bounds = (zx - zone_size // 2, zy - zone_size // 2,
+                           zx + zone_size // 2, zy + zone_size // 2)  # (x_min, y_min, x_max, y_max)
+            target = (zx, zy)  # zone center
             nearest_scout = self._find_nearest_agent(target, scouts, agent_positions)
             if nearest_scout:
                 cmd = make_task_assignment(
                     nearest_scout, 'search_zone', target, self.step,
-                    f"Explore zone (currently {zone.get('exploration', 0):.1%} explored)."
+                    f"Explore zone ({zone.get('exploration', 0):.1%} explored).",
+                    zone_bounds=zone_bounds,
                 )
                 commands.append(cmd)
                 self.assignments[nearest_scout] = {'task': 'scout', 'zone': zone['zone'], 'assigned_step': self.step}
@@ -681,11 +686,12 @@ Respond ONLY with the JSON array, no other text."""
         for aid in self.agent_ids:
             if aid not in used_agents and self.zone_data:
                 z = self.zone_data[zone_idx % len(self.zone_data)]
+                zx, zy = z['zone']
                 assignments.append({
                     'agent_id': aid,
                     'task_type': 'search_zone',
-                    'target_x': z['zone'][0] + 5,
-                    'target_y': z['zone'][1] + 5,
+                    'target_x': zx,
+                    'target_y': zy,
                     'reason': 'explore area'
                 })
                 zone_idx += 1
@@ -719,8 +725,15 @@ Respond ONLY with the JSON array, no other text."""
             ty = a.get('target_y', 25)
             reason = a.get('reason', '')
 
+            # For search_zone tasks, compute and attach zone_bounds
+            extra = {}
+            if task_type == 'search_zone':
+                zone_size = 10
+                extra['zone_bounds'] = (tx - zone_size // 2, ty - zone_size // 2,
+                                        tx + zone_size // 2, ty + zone_size // 2)
+
             cmd = make_task_assignment(
-                agent_id, task_type, (tx, ty), self.step, reason
+                agent_id, task_type, (tx, ty), self.step, reason, **extra
             )
             commands.append(cmd)
             self.assignments[agent_id] = {
