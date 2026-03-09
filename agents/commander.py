@@ -117,7 +117,7 @@ class CommanderAgent:
                         pos = (victim_x, victim_y)
                         if pos in self.mental_map.cells:
                             cell = self.mental_map.cells[pos]
-                            
+
                             # Check if victims need rescue based on hazards
                             # If building has fire or debris, add victims to mental map
                             if cell.building_id is not None:
@@ -131,9 +131,25 @@ class CommanderAgent:
                                 # Victims in road cells (unusual but possible)
                                 if cell.hazard in (HazardType.FIRE, HazardType.DEBRIS):
                                     cell.victims.extend([Victim(victim_id=-1, position=pos) for _ in range(count)])
-                            
+
                             cell.explored = True
                             cell.last_updated_step = current_step
+
+                    # Process rescue confirmations from medics/firefighters
+                    rescued_at = msg.metadata.get('rescued_at')
+                    if rescued_at:
+                        rx, ry = rescued_at
+                        # Mark victims as rescued in a radius matching the env rescue radius (2)
+                        for dx in range(-2, 3):
+                            for dy in range(-2, 3):
+                                rpos = (rx + dx, ry + dy)
+                                if rpos in self.mental_map.cells:
+                                    rcell = self.mental_map.cells[rpos]
+                                    for v in rcell.victims:
+                                        if not v.rescued:
+                                            v.rescued = True
+                                    rcell.last_updated_step = current_step
+                        print(f"[Commander] Mental map updated: rescue at ({rx},{ry})")
 
     def decide(self, observation: dict, messages: List[Message],
                env=None) -> List[Message]:
@@ -372,43 +388,74 @@ class HeuristicCommander(CommanderAgent):
         # Priority: zones with highest victim/fire counts
         unexplored_zones = sorted(self.zone_data, key=lambda z: z.get('exploration', 0))  # Least explored first
 
-        # 1. Assign medics ONLY to exact known victim locations in the mental map
-        #    (Do NOT dispatch medics based on zone-level estimates.)
+        # Split victims by hazard type:
+        #   - Firefighters → buildings with FIRE + victims
+        #   - Medics → buildings with DEBRIS (collapsed) + victims
         if self.mental_map:
-            known_victims = self.mental_map.get_all_known_victims()
-            # Sort by victim count descending so highest-need cells are served first
-            known_victims.sort(key=lambda v: v[2], reverse=True)
-            for victim_x, victim_y, count in known_victims:
-                if not medics:
+            fire_victims, debris_victims = self.mental_map.get_known_victims_by_hazard()
+
+            # 1. Assign firefighters to fire+victim locations (extinguish fire & rescue)
+            fire_victims.sort(key=lambda v: v[2], reverse=True)
+            for victim_x, victim_y, count in fire_victims:
+                if not firefighters:
                     break
-                nearest_medic = self._find_nearest_agent((victim_x, victim_y), medics, agent_positions)
-                if nearest_medic:
+                nearest_ff = self._find_nearest_agent((victim_x, victim_y), firefighters, agent_positions)
+                if nearest_ff:
                     cmd = make_task_assignment(
-                        nearest_medic, 'rescue_victims', (victim_x, victim_y), self.step,
-                        f"{count} victims at exact location ({victim_x},{victim_y})."
+                        nearest_ff, 'extinguish_fire', (victim_x, victim_y), self.step,
+                        f"Fire + {count} victims at ({victim_x},{victim_y}). Extinguish and rescue."
                     )
                     commands.append(cmd)
-                    self.assignments[nearest_medic] = {'task': 'rescue', 'target': (victim_x, victim_y), 'assigned_step': self.step}
-                    medics.remove(nearest_medic)
+                    self.assignments[nearest_ff] = {'task': 'extinguish', 'target': (victim_x, victim_y), 'assigned_step': self.step}
+                    firefighters.remove(nearest_ff)
 
-        # 2. Assign firefighters ONLY to exact known fire locations in the mental map
-        #    (Do NOT dispatch firefighters based on zone-level estimates.)
-        if self.mental_map:
+            # Also send remaining firefighters to fires without victims
             known_fires = self.mental_map.get_all_known_fires()
-            # Sort by intensity descending so worst fires are handled first
-            known_fires.sort(key=lambda f: f[2], reverse=True)
-            for fire_x, fire_y, intensity in known_fires:
+            fire_victim_positions = {(v[0], v[1]) for v in fire_victims}
+            fires_only = [(fx, fy, intensity) for fx, fy, intensity in known_fires
+                          if (fx, fy) not in fire_victim_positions]
+            fires_only.sort(key=lambda f: f[2], reverse=True)
+            for fire_x, fire_y, intensity in fires_only:
                 if not firefighters:
                     break
                 nearest_ff = self._find_nearest_agent((fire_x, fire_y), firefighters, agent_positions)
                 if nearest_ff:
                     cmd = make_task_assignment(
                         nearest_ff, 'extinguish_fire', (fire_x, fire_y), self.step,
-                        f"Fire (intensity={intensity:.1f}) at exact location ({fire_x},{fire_y})."
+                        f"Fire (intensity={intensity:.1f}) at ({fire_x},{fire_y})."
                     )
                     commands.append(cmd)
                     self.assignments[nearest_ff] = {'task': 'extinguish', 'target': (fire_x, fire_y), 'assigned_step': self.step}
                     firefighters.remove(nearest_ff)
+
+            # 2. Assign medics to collapsed+victim locations (rescue from debris)
+            debris_victims.sort(key=lambda v: v[2], reverse=True)
+            for victim_x, victim_y, count in debris_victims:
+                if not medics:
+                    break
+                nearest_medic = self._find_nearest_agent((victim_x, victim_y), medics, agent_positions)
+                if nearest_medic:
+                    cmd = make_task_assignment(
+                        nearest_medic, 'rescue_victims', (victim_x, victim_y), self.step,
+                        f"Collapsed building + {count} victims at ({victim_x},{victim_y})."
+                    )
+                    commands.append(cmd)
+                    self.assignments[nearest_medic] = {'task': 'rescue', 'target': (victim_x, victim_y), 'assigned_step': self.step}
+                    medics.remove(nearest_medic)
+
+            # Also send remaining medics to fire+victim locations if firefighters exhausted
+            for victim_x, victim_y, count in fire_victims:
+                if not medics:
+                    break
+                nearest_medic = self._find_nearest_agent((victim_x, victim_y), medics, agent_positions)
+                if nearest_medic:
+                    cmd = make_task_assignment(
+                        nearest_medic, 'rescue_victims', (victim_x, victim_y), self.step,
+                        f"Fire + {count} victims at ({victim_x},{victim_y}). Rescue assist."
+                    )
+                    commands.append(cmd)
+                    self.assignments[nearest_medic] = {'task': 'rescue', 'target': (victim_x, victim_y), 'assigned_step': self.step}
+                    medics.remove(nearest_medic)
 
         # 3. Assign scouts to unexplored zones
         for zone in unexplored_zones:
@@ -497,14 +544,19 @@ class LLMCommander(CommanderAgent):
                 agents_info += f"  {aid} ({atype}) at ({pos[0]},{pos[1]}) - AVAILABLE\n"
 
         # Collect exact known victim and fire locations from mental map
-        victim_locations_str = ""
+        fire_victim_str = ""
+        debris_victim_str = ""
         fire_locations_str = ""
         if self.mental_map:
-            known_victims = self.mental_map.get_all_known_victims()
-            if known_victims:
-                known_victims.sort(key=lambda v: v[2], reverse=True)
-                for vx, vy, count in known_victims:
-                    victim_locations_str += f"  ({vx},{vy}): {count} victim(s)\n"
+            fire_victims, debris_victims = self.mental_map.get_known_victims_by_hazard()
+            if fire_victims:
+                fire_victims.sort(key=lambda v: v[2], reverse=True)
+                for vx, vy, count in fire_victims:
+                    fire_victim_str += f"  ({vx},{vy}): {count} victim(s) in FIRE\n"
+            if debris_victims:
+                debris_victims.sort(key=lambda v: v[2], reverse=True)
+                for vx, vy, count in debris_victims:
+                    debris_victim_str += f"  ({vx},{vy}): {count} victim(s) in COLLAPSED building\n"
             known_fires = self.mental_map.get_all_known_fires()
             if known_fires:
                 known_fires.sort(key=lambda f: f[2], reverse=True)
@@ -519,10 +571,13 @@ CURRENT STEP: {observation.get('step', 0)}
 ZONE SUMMARIES (noisy estimates from environment):
 {zones_summary}
 
-KNOWN VICTIM LOCATIONS (exact coordinates from field reports):
-{victim_locations_str if victim_locations_str else "  None discovered yet."}
+VICTIMS IN BURNING BUILDINGS (send firefighters here - extinguish & rescue):
+{fire_victim_str if fire_victim_str else "  None discovered yet."}
 
-KNOWN FIRE LOCATIONS (exact coordinates from field reports):
+VICTIMS IN COLLAPSED BUILDINGS (send medics here - rescue from debris):
+{debris_victim_str if debris_victim_str else "  None discovered yet."}
+
+FIRE LOCATIONS WITHOUT KNOWN VICTIMS (send firefighters to contain):
 {fire_locations_str if fire_locations_str else "  None discovered yet."}
 
 FREE AGENTS AVAILABLE FOR NEW TASKS:
@@ -533,8 +588,8 @@ RECENT AGENT REPORTS:
 
 AGENT TYPES AND CAPABILITIES:
 - scout_*: Can scan/explore areas, fast movement, observation radius=2
-- firefighter_*: Can extinguish fires and rescue victims, send them to fire cells and victim cells where/near which fire is present
-- medic_*: Can rescue and treat victims, send to debris cells(collapsed buildings) where victims are present
+- firefighter_*: Can extinguish fires AND rescue victims from burning buildings. Send to cells with FIRE + victims.
+- medic_*: Can rescue victims from collapsed/debris buildings. Send to cells with COLLAPSED buildings + victims.
 
 Respond with a JSON array of task assignments. Each assignment:
 {{
@@ -546,10 +601,12 @@ Respond with a JSON array of task assignments. Each assignment:
 }}
 
 PRIORITIES:
-1. Save living victims (assign medics to known victim locations)
-2. Extinguish fires near victims/buildings (assign firefighters)
-3. Explore unexplored zones with high uncertainty (assign scouts)
-4. Consider blocked roads - paths will be planned around them
+1. Assign firefighters to burning buildings with victims (extinguish_fire task) — they will extinguish and rescue
+2. Assign medics to collapsed buildings with victims (rescue_victims task) — they rescue from debris
+3. Assign remaining firefighters to fires without victims
+4. Assign remaining medics to any remaining victim locations
+5. Explore unexplored zones with high uncertainty (assign scouts)
+6. Consider blocked roads - paths will be planned around them
 
 IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
 
@@ -762,7 +819,9 @@ Respond ONLY with the JSON array, no other text."""
         return commands
 
     def _refine_target(self, cmd: Message, agent_positions: Dict[str, Tuple[int, int]]) -> Message:
-        """Snap LLM zone-level target to nearest actual victim/fire from mental map."""
+        """Snap LLM zone-level target to nearest actual victim/fire from mental map.
+        Firefighters → fire+victim cells.  Medics → debris+victim cells.
+        """
         if not self.mental_map:
             return cmd
 
@@ -772,13 +831,14 @@ Respond ONLY with the JSON array, no other text."""
             return cmd
 
         tx, ty = target_pos
+        fire_victims, debris_victims = self.mental_map.get_known_victims_by_hazard()
 
         if task_type == 'rescue_victims':
-            known_victims = self.mental_map.get_all_known_victims()
-            if known_victims:
-                # Pick nearest victim cell, weighted by count (prefer higher count on ties)
+            # Medics → prefer debris/collapsed victims
+            candidates = debris_victims if debris_victims else fire_victims
+            if candidates:
                 best = min(
-                    known_victims,
+                    candidates,
                     key=lambda v: (abs(v[0] - tx) + abs(v[1] - ty), -v[2])
                 )
                 new_pos = (best[0], best[1])
@@ -789,18 +849,31 @@ Respond ONLY with the JSON array, no other text."""
                     cmd.metadata['target_pos'] = new_pos
 
         elif task_type == 'extinguish_fire':
-            known_fires = self.mental_map.get_all_known_fires()
-            if known_fires:
+            # Firefighters → prefer fire+victim cells, then any fire
+            if fire_victims:
                 best = min(
-                    known_fires,
-                    key=lambda f: (abs(f[0] - tx) + abs(f[1] - ty), -f[2])
+                    fire_victims,
+                    key=lambda v: (abs(v[0] - tx) + abs(v[1] - ty), -v[2])
                 )
                 new_pos = (best[0], best[1])
                 if new_pos != target_pos:
-                    print(f"[LLM Commander] Refined {cmd.receiver} fire target "
+                    print(f"[LLM Commander] Refined {cmd.receiver} fire+victim target "
                           f"({tx},{ty}) -> ({new_pos[0]},{new_pos[1]}) "
-                          f"(intensity={best[2]:.1f})")
+                          f"({best[2]} victims)")
                     cmd.metadata['target_pos'] = new_pos
+            else:
+                known_fires = self.mental_map.get_all_known_fires()
+                if known_fires:
+                    best = min(
+                        known_fires,
+                        key=lambda f: (abs(f[0] - tx) + abs(f[1] - ty), -f[2])
+                    )
+                    new_pos = (best[0], best[1])
+                    if new_pos != target_pos:
+                        print(f"[LLM Commander] Refined {cmd.receiver} fire target "
+                              f"({tx},{ty}) -> ({new_pos[0]},{new_pos[1]}) "
+                              f"(intensity={best[2]:.1f})")
+                        cmd.metadata['target_pos'] = new_pos
 
         return cmd
 

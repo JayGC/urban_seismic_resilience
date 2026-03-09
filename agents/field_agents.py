@@ -53,8 +53,7 @@ class FieldAgent:
         else:
             action = self._autonomous_action(obs, env)
 
-        # Only scouts generate reports (for commander mental-map updates).
-        # Medics and firefighters focus solely on their tasks.
+        # Scouts generate full observation reports for commander mental-map updates.
         if self.agent_type == 'scout':
             report = self._make_report(obs)
             outgoing.append(report)
@@ -65,6 +64,19 @@ class FieldAgent:
             if f_count or v_count or b_count:
                 print(f"  >> [{self.agent_id}] Report -> commander: "
                       f"{f_count} fires, {v_count} victims, {b_count} blocked roads")
+
+        # Medics/firefighters send a rescue confirmation so the mental map updates.
+        if action['type'] == 'rescue' and self.agent_type in ('medic', 'firefighter'):
+            confirmation = make_report(
+                self.agent_id, self.position,
+                {
+                    'rescued_at': self.position,
+                    'summary': {},
+                },
+                obs.get('step', 0),
+            )
+            outgoing.append(confirmation)
+            print(f"  >> [{self.agent_id}] Rescue confirmation -> commander at {self.position}")
 
         if action['type'] == 'noop':
             self.idle_steps += 1
@@ -125,7 +137,6 @@ class FieldAgent:
                 print(f"  XX [{self.agent_id}] Obstacle at {next_pos}, abandoning task")
                 self.current_task = None
                 self.path = []
-                return {'type': 'noop'}
                 return {'type': 'noop'}
 
         # Move along path
@@ -409,25 +420,37 @@ class ScoutAgent(FieldAgent):
 
 
 class FirefighterAgent(FieldAgent):
-    """Firefighter: moves toward fires, extinguishes them."""
+    """Firefighter: moves toward fires, extinguishes them, rescues victims in burning buildings."""
 
     def __init__(self, agent_id: str, position: Tuple[int, int]):
         super().__init__(agent_id, 'firefighter', position)
 
     def _autonomous_action(self, obs: dict, env) -> dict:
-        # Check if adjacent to fire
         local = obs.get('local_grid', [])
+        has_fire = False
+        has_victims = False
         for row in local:
             for cell in row:
-                if isinstance(cell, dict) and cell.get('hazard') == 'FIRE':
-                    return {'type': 'extinguish'}
+                if isinstance(cell, dict):
+                    if cell.get('hazard') == 'FIRE':
+                        has_fire = True
+                    if cell.get('num_victims', 0) > 0:
+                        has_victims = True
 
-        # Find nearest fire
+        # Priority 1: extinguish adjacent fires
+        if has_fire:
+            return {'type': 'extinguish'}
+
+        # Priority 2: rescue nearby victims (in burning/collapsed buildings)
+        if has_victims:
+            return {'type': 'rescue'}
+
+        # Priority 3: find nearest fire (with victims preferred)
         target = self._find_nearest_target(env, 'fire')
         if target:
             return self._move_toward(target, env)
 
-        # No fires, help with victims
+        # Priority 4: help with victims elsewhere
         target = self._find_nearest_target(env, 'victim')
         if target:
             return self._move_toward(target, env)

@@ -358,6 +358,22 @@ class MentalMap:
                 known_victims.append((pos[0], pos[1], len(cell.victims)))
         return known_victims
 
+    def get_known_victims_by_hazard(self) -> Tuple[List[Tuple[int, int, int]], List[Tuple[int, int, int]]]:
+        """Return victims split by hazard: (fire_victims, debris_victims).
+        fire_victims:  cells where hazard is FIRE and victims exist.
+        debris_victims: cells where hazard is DEBRIS (collapsed) and victims exist.
+        Each entry is (x, y, count).
+        """
+        fire_victims = []
+        debris_victims = []
+        for pos, cell in self.cells.items():
+            if cell.explored and len(cell.victims) > 0:
+                if cell.hazard == HazardType.FIRE:
+                    fire_victims.append((pos[0], pos[1], len(cell.victims)))
+                elif cell.hazard == HazardType.DEBRIS:
+                    debris_victims.append((pos[0], pos[1], len(cell.victims)))
+        return fire_victims, debris_victims
+
     def get_all_known_fires(self) -> List[Tuple[int, int, float]]:
         """
         Return list of known fire locations.

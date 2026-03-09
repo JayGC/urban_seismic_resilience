@@ -421,8 +421,11 @@ class UrbanDisasterEnv:
                 img[y, x] = [0.4, 0.35, 0.3]
 
             # Victims
-            if any(not v.rescued and v.health > 0 for v in cell.victims):
-                img[y, x] = [1.0, 1.0, 0.0]  # Yellow for live victims
+            if cell.victims:
+                if any(not v.rescued and v.health > 0 for v in cell.victims):
+                    img[y, x] = [1.0, 1.0, 0.0]  # Yellow for live victims
+                elif any(v.rescued for v in cell.victims):
+                    img[y, x] = [0.0, 1.0, 0.5]  # Green-teal for rescued victims
 
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         ax.imshow(img, origin='lower', interpolation='nearest')
@@ -446,7 +449,8 @@ class UrbanDisasterEnv:
             mpatches.Patch(color=[0.3, 0.3, 0.3], label='Collapsed'),
             mpatches.Patch(color=[0.5, 0.4, 0.3], label='Blocked'),
             mpatches.Patch(color=[1.0, 0.3, 0.0], label='Fire'),
-            mpatches.Patch(color=[1.0, 1.0, 0.0], label='Victims'),
+            mpatches.Patch(color=[1.0, 1.0, 0.0], label='Victims (Alive)'),
+            mpatches.Patch(color=[0.0, 1.0, 0.5], label='Victims (Rescued)'),
         ]
         ax.legend(handles=legend_items, loc='upper right', fontsize=8)
 
@@ -501,7 +505,10 @@ class UrbanDisasterEnv:
 
                 # Victims (only show if explored/observed)
                 if len(cell.victims) > 0:
-                    img[y, x] = [1.0, 1.0, 0.0]  # Yellow for known victims
+                    if any(not v.rescued for v in cell.victims):
+                        img[y, x] = [1.0, 1.0, 0.0]  # Yellow for unrescued victims
+                    elif any(v.rescued for v in cell.victims):
+                        img[y, x] = [0.0, 1.0, 0.5]  # Green-teal for rescued victims
 
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         ax.imshow(img, origin='lower', interpolation='nearest')
@@ -529,7 +536,8 @@ class UrbanDisasterEnv:
             mpatches.Patch(color=[0.6, 0.6, 0.7], label='Building (Known from maps)'),
             mpatches.Patch(color=[0.3, 0.3, 0.3], label='Building Collapsed (Observed)'),
             mpatches.Patch(color=[1.0, 0.3, 0.0], label='Fire (Observed)'),
-            mpatches.Patch(color=[1.0, 1.0, 0.0], label='Victims (Observed)'),
+            mpatches.Patch(color=[1.0, 1.0, 0.0], label='Victims (Alive)'),
+            mpatches.Patch(color=[0.0, 1.0, 0.5], label='Victims (Rescued)'),
         ]
         ax.legend(handles=legend_items, loc='upper right', fontsize=8)
 
