@@ -2,7 +2,7 @@
 grid_width: 50
 grid_height: 50
 building_density: 0.20
-num_victims: 15
+num_victims: 50
 num_fires: 30
 victim_decay_rate: 1.0
 fire_spread_prob: 0.02

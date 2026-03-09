@@ -107,6 +107,6 @@ def step():
 if __name__ == '__main__':
     print("="*60)
     print("Starting SYS-COM Interface")
-    print("Go to http://127.0.0.1:5002 in your web browser.")
+    print("Go to http://127.0.0.1:5003 in your web browser.")
     print("="*60)
-    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5002)
+    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5003)

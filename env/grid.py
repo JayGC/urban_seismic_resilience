@@ -180,50 +180,28 @@ class Grid:
                 bid += 1
 
     def place_victims(self, count: int):
-        """Place victims on building edge cells (reachable from adjacent roads)."""
-        # Prefer building cells adjacent to at least one road
-        #place victims in every building
-        # Place victims in every building
+        """Place victims on building edge cells (adjacent to at least one road)."""
         for building in self.buildings.values():
-            # Distribute victims across building cells
+            # Find edge cells: building cells with at least one road neighbour
+            edge_cells = []
+            for (bx, by) in building.cells:
+                for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                    nb = (bx + dx, by + dy)
+                    if nb in self.cells and self.cells[nb].cell_type == CellType.ROAD:
+                        edge_cells.append((bx, by))
+                        break  # one road neighbour is enough
+            if not edge_cells:
+                # Fallback: use any building cell if no edge found
+                edge_cells = list(building.cells)
             num_victims = max(1, count // len(self.buildings)) if self.buildings else 0
-            building_positions = building.cells
-            if building_positions:
-                chosen_positions = self.rng.choice(len(building_positions), 
-                                size=min(num_victims, len(building_positions)), 
-                                replace=False)
-            for idx in chosen_positions:
-                pos = building_positions[idx]
+            num_to_place = min(num_victims, len(edge_cells))
+            chosen_indices = self.rng.choice(len(edge_cells), size=num_to_place, replace=False)
+            for idx in chosen_indices:
+                pos = edge_cells[idx]
                 v = Victim(victim_id=self.victim_counter, position=pos)
                 building.num_people_inside += 1
                 self.victim_counter += 1
                 self.cells[pos].victims.append(v)
-        # edge_cells = []
-        # interior_cells = []
-        # for (x, y), c in self.cells.items():
-        #     if c.cell_type == CellType.BUILDING and not c.blocked:
-        #         is_edge = False
-        #         for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
-        #             nb = (x + dx, y + dy)
-        #             if nb in self.cells and self.cells[nb].cell_type == CellType.ROAD:
-        #                 is_edge = True
-        #                 break
-        #         if is_edge:
-        #             edge_cells.append((x, y))
-        #         else:
-        #             interior_cells.append((x, y))
-
-        # # Use edge cells first, then interior
-        # available = edge_cells if edge_cells else interior_cells
-        # if not available:
-        #     return
-        # count = min(count, len(available))
-        # chosen = self.rng.choice(len(available), size=count, replace=False)
-        # for idx in chosen:
-        #     pos = available[idx]
-        #     v = Victim(victim_id=self.victim_counter, position=pos)
-        #     self.victim_counter += 1
-        #     self.cells[pos].victims.append(v)
 
     def place_fires(self, count: int, intensity_range: Tuple[float, float] = (30, 80)):
         """Place fires randomly in buildings."""

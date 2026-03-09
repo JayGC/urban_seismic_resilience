@@ -512,8 +512,9 @@ RECENT AGENT REPORTS:
 
 AGENT TYPES AND CAPABILITIES:
 - scout_*: Can scan/explore areas, fast movement, observation radius=2
-- firefighter_*: Can extinguish fires
-- medic_*: Can rescue and treat victims, clear debris
+- firefighter_*: Can extinguish fires and rescue victims. Can clear debris.
+- medic_*: can treat vcitims where debris is present and rescue victims. Can clear debris but not extinguish fires.
+
 
 Respond with a JSON array of task assignments. Each assignment:
 {{
