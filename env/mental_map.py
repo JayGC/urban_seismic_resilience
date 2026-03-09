@@ -310,8 +310,8 @@ class MentalMap:
         cells_explored = 0
         total_cells = 0
         
-        for dy in range(zone_size):
-            for dx in range(zone_size):
+        for dy in range(-zone_size//2, zone_size//2):
+            for dx in range(-zone_size//2, zone_size//2):
                 pos = (zone_x + dx, zone_y + dy)
                 if pos not in self.cells:
                     continue
@@ -357,7 +357,18 @@ class MentalMap:
             if cell.explored and len(cell.victims) > 0:
                 known_victims.append((pos[0], pos[1], len(cell.victims)))
         return known_victims
-    
+
+    def get_all_known_fires(self) -> List[Tuple[int, int, float]]:
+        """
+        Return list of known fire locations.
+        Returns: List of (x, y, intensity) tuples
+        """
+        known_fires = []
+        for pos, cell in self.cells.items():
+            if cell.explored and cell.hazard == HazardType.FIRE:
+                known_fires.append((pos[0], pos[1], cell.fire_intensity or 0.0))
+        return known_fires
+
     def to_summary_dict(self) -> dict:
         """Convert mental map to summary dictionary for logging/debugging."""
         return {

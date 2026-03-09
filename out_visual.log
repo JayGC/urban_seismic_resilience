@@ -1,0 +1,2306 @@
+============================================================
+Starting SYS-COM Interface
+Go to http://127.0.0.1:5002 in your web browser.
+============================================================
+ * Serving Flask app 'app'
+ * Debug mode: on
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5002
+ * Running on http://172.20.6.219:5002
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [08/Mar/2026 17:53:12] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [08/Mar/2026 17:53:23] "POST /start HTTP/1.1" 200 -
+
+############################################################
+### STEP 1
+############################################################
+
+============================================================
+[LLM Commander] Step 0 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 0
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=2, fires=1, blocked=4, collapsed=2
+  Zone (40,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,20): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,20): victims=16, fires=1, blocked=24, collapsed=16
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=22, fires=5, blocked=33, collapsed=22
+  Zone (40,20): victims=0, fires=3, blocked=1, collapsed=0
+  Zone (0,30): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,30): victims=6, fires=2, blocked=11, collapsed=6
+  Zone (20,30): victims=16, fires=3, blocked=22, collapsed=16
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (10,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  scout_0 (scout) at (45,4) - AVAILABLE
+  scout_1 (scout) at (38,35) - AVAILABLE
+  scout_2 (scout) at (29,0) - AVAILABLE
+  scout_3 (scout) at (48,28) - AVAILABLE
+  scout_4 (scout) at (12,23) - AVAILABLE
+  firefighter_0 (firefighter) at (41,22) - AVAILABLE
+  firefighter_1 (firefighter) at (9,24) - AVAILABLE
+  firefighter_2 (firefighter) at (4,24) - AVAILABLE
+  medic_0 (medic) at (17,19) - AVAILABLE
+  medic_1 (medic) at (30,21) - AVAILABLE
+  medic_2 (medic) at (10,28) - AVAILABLE
+  medic_3 (medic) at (49,38) - AVAILABLE
+
+
+RECENT AGENT REPORTS:
+  No reports this step.
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[
+  {
+    "agent_id": "medic_0",
+    "task_type": "rescue_victims",
+    "target_x": 20,
+    "target_y": 20,
+    "reason": "Highest victim count (30) in central zone"
+  },
+  {
+    "agent_id": "medic_1",
+    "task_type": "rescue_victims",
+    "target_x": 30,
+    "target_y": 20,
+    "reason": "Large victim cluster (22) near current position"
+  },
+  {
+    "agent_id": "medic_2",
+    "task_type": "rescue_victims",
+    "target_x": 10,
+    "target_y": 20,
+    "reason": "Significant victims (16) with manageable fire"
+  },
+  {
+    "agent_id": "medic_3",
+    "task_type": "rescue_victims",
+    "target_x": 30,
+    "target_y": 30,
+    "reason": "High victim count (20) in southern sector"
+  },
+  {
+    "agent_id": "firefighter_0",
+    "task_type": "extinguish_fire",
+    "target_x": 40,
+    "target_y": 20,
+    "reason": "Three fires near victim zones (30,20) and (20,20)"
+  },
+  {
+    "agent_id": "firefighter_1",
+    "task_type": "extinguish_fire",
+    "target_x": 10,
+    "target_y": 20,
+    "reason": "Fire threatening 16 victims in same zone"
+  },
+  {
+    "agent_id": "firefighter_2",
+    "task_type": "extinguish_fire",
+    "target_x": 20,
+    "target_y": 20,
+    "reason": "Five fires in zone with 30 victims"
+  },
+  {
+    "agent_id": "scout_0",
+    "task_type": "search_zone",
+    "target_x": 40,
+    "target_y": 0,
+    "reason": "Assess fire spread in eastern perimeter"
+  },
+  {
+    "agent_id": "scout_1",
+    "task_type": "search_zone",
+    "target_x": 30,
+    "target_y": 40,
+    "reason": "Monitor fires in southern edge"
+  },
+  {
+    "agent_id": "scout_2",
+    "task_type": "search_zone",
+    "target_x": 20,
+    "target_y": 0,
+    "reason": "Check fire activity on northern row"
+  },
+  {
+    "agent_id": "scout_3",
+    "task_type": "search_zone",
+    "target_x": 40,
+    "target_y": 30,
+    "reason": "Verify fire status and blocked roads in central‑east zone"
+  },
+  {
+    "agent_id": "scout_4",
+    "task_type": "search_zone",
+    "target_x": 0,
+    "target_y": 30,
+    "reason": "Explore western sector with fires but no reported victims"
+  }
+]
+------------------------------------------------------------
+[Commander] Computed path for medic_0: length 5
+[Commander] Computed path for medic_1: length 2
+[Commander] Computed path for medic_2: length 13
+[Commander] Computed path for medic_3: length 28
+[Commander] Warning: No path found for firefighter_0 from (41, 22) to (40, 20)
+[Commander] Computed path for firefighter_1: length 10
+[Commander] Computed path for firefighter_2: length 21
+[Commander] Computed path for scout_0: length 10
+[Commander] Computed path for scout_1: length 14
+[Commander] Computed path for scout_2: length 10
+[Commander] Computed path for scout_3: length 11
+[Commander] Computed path for scout_4: length 20
+[LLM Commander] Step 0 -> 12 task(s) assigned
+  >> medic_0: rescue_victims at (20, 20) (path=5 steps)
+  >> medic_1: rescue_victims at (30, 20) (path=2 steps)
+  >> medic_2: rescue_victims at (10, 20) (path=13 steps)
+  >> medic_3: rescue_victims at (30, 30) (path=28 steps)
+  >> firefighter_0: extinguish_fire at (40, 20) (path=0 steps)
+  >> firefighter_1: extinguish_fire at (10, 20) (path=10 steps)
+  >> firefighter_2: extinguish_fire at (20, 20) (path=21 steps)
+  >> scout_0: search_zone at (40, 0) (path=10 steps)
+  >> scout_1: search_zone at (30, 40) (path=14 steps)
+  >> scout_2: search_zone at (20, 0) (path=10 steps)
+  >> scout_3: search_zone at (40, 30) (path=11 steps)
+  >> scout_4: search_zone at (0, 30) (path=20 steps)
+============================================================
+
+>> [MsgBus] 12 commands sent to agents
+  << [scout_0] Received task from commander: TASK: search_zone at (40,0). Assess fire spread in eastern perimeter
+  OK [scout_0] Accepted task 'search_zone' -> (40, 0) with commander path (len=10)
+  .. [scout_0] pos=(45, 4) action=move task=active: search_zone path_len=9
+  << [scout_1] Received task from commander: TASK: search_zone at (30,40). Monitor fires in southern edge
+  OK [scout_1] Accepted task 'search_zone' -> (30, 40) with commander path (len=14)
+[scout_1] Unexpected obstacle at (37, 35), replanning...
+  ~~ [scout_1] Replanned path (len=14)
+  >> [scout_1] Report -> commander: 1 fires, 1 victims, 4 blocked roads
+  .. [scout_1] pos=(38, 35) action=move task=active: search_zone path_len=13
+  << [scout_2] Received task from commander: TASK: search_zone at (20,0). Check fire activity on northern row
+  OK [scout_2] Accepted task 'search_zone' -> (20, 0) with commander path (len=10)
+  .. [scout_2] pos=(29, 0) action=move task=active: search_zone path_len=9
+  << [scout_3] Received task from commander: TASK: search_zone at (40,30). Verify fire status and blocked roads in central‑east zone
+  OK [scout_3] Accepted task 'search_zone' -> (40, 30) with commander path (len=11)
+  .. [scout_3] pos=(48, 28) action=move task=active: search_zone path_len=10
+  << [scout_4] Received task from commander: TASK: search_zone at (0,30). Explore western sector with fires but no reported victims
+  OK [scout_4] Accepted task 'search_zone' -> (0, 30) with commander path (len=20)
+  >> [scout_4] Report -> commander: 1 fires, 0 victims, 0 blocked roads
+  .. [scout_4] pos=(12, 23) action=move task=active: search_zone path_len=19
+  << [firefighter_0] Received task from commander: TASK: extinguish_fire at (40,20). Three fires near victim zones (30,20) and (20,20)
+  ~~ [firefighter_0] Fallback: nearest reachable to (40, 20) is (41, 20) (dist=1)
+  !! [firefighter_0] Accepted task 'extinguish_fire' -> (40, 20) with LOCAL fallback path (len=3)
+  .. [firefighter_0] pos=(41, 22) action=move task=active: extinguish_fire path_len=2
+  << [firefighter_1] Received task from commander: TASK: extinguish_fire at (10,20). Fire threatening 16 victims in same zone
+  OK [firefighter_1] Accepted task 'extinguish_fire' -> (10, 20) with commander path (len=10)
+  .. [firefighter_1] pos=(9, 24) action=move task=active: extinguish_fire path_len=9
+  << [firefighter_2] Received task from commander: TASK: extinguish_fire at (20,20). Five fires in zone with 30 victims
+  OK [firefighter_2] Accepted task 'extinguish_fire' -> (20, 20) with commander path (len=21)
+  .. [firefighter_2] pos=(4, 24) action=move task=active: extinguish_fire path_len=20
+  << [medic_0] Received task from commander: TASK: rescue_victims at (20,20). Highest victim count (30) in central zone
+  OK [medic_0] Accepted task 'rescue_victims' -> (20, 20) with commander path (len=5)
+  .. [medic_0] pos=(17, 19) action=move task=active: rescue_victims path_len=4
+  << [medic_1] Received task from commander: TASK: rescue_victims at (30,20). Large victim cluster (22) near current position
+  OK [medic_1] Accepted task 'rescue_victims' -> (30, 20) with commander path (len=2)
+  .. [medic_1] pos=(30, 21) action=move task=active: rescue_victims path_len=1
+  << [medic_2] Received task from commander: TASK: rescue_victims at (10,20). Significant victims (16) with manageable fire
+  OK [medic_2] Accepted task 'rescue_victims' -> (10, 20) with commander path (len=13)
+  .. [medic_2] pos=(10, 28) action=move task=active: rescue_victims path_len=12
+  << [medic_3] Received task from commander: TASK: rescue_victims at (30,30). High victim count (20) in southern sector
+  OK [medic_3] Accepted task 'rescue_victims' -> (30, 30) with commander path (len=28)
+  .. [medic_3] pos=(49, 38) action=move task=active: rescue_victims path_len=27
+127.0.0.1 - - [08/Mar/2026 17:53:47] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 2
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_1: 1 fires, 1 victim-cells, 4 blocked, 5 collapsed
+[Commander] Report from scout_4: 1 fires, 0 victim-cells, 0 blocked, 0 collapsed
+
+============================================================
+[LLM Commander] Step 1 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 1
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=2, fires=1, blocked=4, collapsed=2
+  Zone (40,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,20): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,20): victims=16, fires=1, blocked=24, collapsed=16
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=22, fires=5, blocked=33, collapsed=22
+  Zone (40,20): victims=0, fires=3, blocked=1, collapsed=0
+  Zone (0,30): victims=0, fires=4, blocked=0, collapsed=0
+  Zone (10,30): victims=6, fires=2, blocked=11, collapsed=6
+  Zone (20,30): victims=16, fires=3, blocked=22, collapsed=16
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (10,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (45,4): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (38,35): 1 victims, 1 fires, 4 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (29,0): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (48,28): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (12,23): 0 victims, 1 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 1 -> 0 task(s) assigned
+============================================================
+
+  .. [scout_0] pos=(45, 3) action=move task=active: search_zone path_len=8
+  >> [scout_1] Report -> commander: 1 fires, 0 victims, 4 blocked roads
+  .. [scout_1] pos=(38, 36) action=move task=active: search_zone path_len=12
+  .. [scout_2] pos=(28, 0) action=move task=active: search_zone path_len=8
+  >> [scout_3] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_3] pos=(47, 28) action=move task=active: search_zone path_len=9
+  >> [scout_4] Report -> commander: 1 fires, 1 victims, 0 blocked roads
+  .. [scout_4] pos=(12, 24) action=move task=active: search_zone path_len=18
+  .. [firefighter_0] pos=(41, 21) action=move task=active: extinguish_fire path_len=1
+  .. [firefighter_1] pos=(10, 24) action=move task=active: extinguish_fire path_len=8
+  .. [firefighter_2] pos=(4, 23) action=move task=active: extinguish_fire path_len=19
+  .. [medic_0] pos=(18, 19) action=move task=active: rescue_victims path_len=3
+  .. [medic_1] pos=(30, 20) action=rescue task=none path_len=0
+  .. [medic_2] pos=(10, 27) action=move task=active: rescue_victims path_len=11
+  .. [medic_3] pos=(49, 37) action=move task=active: rescue_victims path_len=26
+127.0.0.1 - - [08/Mar/2026 17:53:49] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 3
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_1: 1 fires, 0 victim-cells, 4 blocked, 4 collapsed
+[Commander] Report from scout_3: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_4: 1 fires, 1 victim-cells, 0 blocked, 1 collapsed
+
+============================================================
+[LLM Commander] Step 2 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 2
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=2, fires=1, blocked=4, collapsed=2
+  Zone (40,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,20): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,20): victims=16, fires=1, blocked=24, collapsed=16
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=22, fires=5, blocked=33, collapsed=22
+  Zone (40,20): victims=0, fires=3, blocked=1, collapsed=0
+  Zone (0,30): victims=0, fires=4, blocked=0, collapsed=0
+  Zone (10,30): victims=6, fires=2, blocked=11, collapsed=6
+  Zone (20,30): victims=16, fires=3, blocked=22, collapsed=16
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (10,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (45,3): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (38,36): 0 victims, 1 fires, 4 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (28,0): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (47,28): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (12,24): 1 victims, 1 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 2 -> 0 task(s) assigned
+============================================================
+
+  .. [scout_0] pos=(45, 2) action=move task=active: search_zone path_len=7
+  >> [scout_1] Report -> commander: 1 fires, 0 victims, 4 blocked roads
+  .. [scout_1] pos=(38, 37) action=move task=active: search_zone path_len=11
+  .. [scout_2] pos=(27, 0) action=move task=active: search_zone path_len=7
+  >> [scout_3] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_3] pos=(46, 28) action=move task=active: search_zone path_len=8
+  >> [scout_4] Report -> commander: 1 fires, 0 victims, 0 blocked roads
+  .. [scout_4] pos=(11, 24) action=move task=active: search_zone path_len=17
+  .. [firefighter_0] pos=(41, 20) action=extinguish task=none path_len=0
+  .. [firefighter_1] pos=(11, 24) action=move task=active: extinguish_fire path_len=7
+  .. [firefighter_2] pos=(4, 22) action=move task=active: extinguish_fire path_len=18
+  .. [medic_0] pos=(19, 19) action=move task=active: rescue_victims path_len=2
+  .. [medic_1] pos=(30, 20) action=move task=none path_len=0
+  .. [medic_2] pos=(10, 26) action=move task=active: rescue_victims path_len=10
+  .. [medic_3] pos=(49, 36) action=move task=active: rescue_victims path_len=25
+127.0.0.1 - - [08/Mar/2026 17:53:51] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 4
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_1: 1 fires, 0 victim-cells, 4 blocked, 3 collapsed
+[Commander] Report from scout_3: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_4: 1 fires, 0 victim-cells, 0 blocked, 0 collapsed
+
+============================================================
+[LLM Commander] Step 3 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 3
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=2, fires=1, blocked=4, collapsed=2
+  Zone (40,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,20): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,20): victims=16, fires=1, blocked=24, collapsed=16
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=22, fires=5, blocked=33, collapsed=22
+  Zone (40,20): victims=0, fires=3, blocked=1, collapsed=0
+  Zone (0,30): victims=0, fires=4, blocked=0, collapsed=0
+  Zone (10,30): victims=6, fires=2, blocked=11, collapsed=6
+  Zone (20,30): victims=16, fires=3, blocked=22, collapsed=16
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (10,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (45,2): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (38,37): 0 victims, 1 fires, 4 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (27,0): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (46,28): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (11,24): 0 victims, 1 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 3 -> 0 task(s) assigned
+============================================================
+
+  .. [scout_0] pos=(45, 1) action=move task=active: search_zone path_len=6
+  >> [scout_1] Report -> commander: 0 fires, 0 victims, 3 blocked roads
+  .. [scout_1] pos=(38, 38) action=move task=active: search_zone path_len=10
+  .. [scout_2] pos=(26, 0) action=move task=active: search_zone path_len=6
+  >> [scout_3] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_3] pos=(45, 28) action=move task=active: search_zone path_len=7
+  >> [scout_4] Report -> commander: 1 fires, 1 victims, 0 blocked roads
+  .. [scout_4] pos=(10, 24) action=move task=active: search_zone path_len=16
+  .. [firefighter_0] pos=(41, 20) action=move task=none path_len=0
+  .. [firefighter_1] pos=(12, 24) action=move task=active: extinguish_fire path_len=6
+  .. [firefighter_2] pos=(4, 21) action=move task=active: extinguish_fire path_len=17
+  .. [medic_0] pos=(20, 19) action=move task=active: rescue_victims path_len=1
+  .. [medic_1] pos=(29, 20) action=move task=none path_len=0
+  .. [medic_2] pos=(10, 25) action=move task=active: rescue_victims path_len=9
+  .. [medic_3] pos=(49, 35) action=move task=active: rescue_victims path_len=24
+127.0.0.1 - - [08/Mar/2026 17:53:53] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 5
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_1: 0 fires, 0 victim-cells, 3 blocked, 2 collapsed
+[Commander] Report from scout_3: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_4: 1 fires, 1 victim-cells, 0 blocked, 0 collapsed
+
+============================================================
+[LLM Commander] Step 4 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 4
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=2, fires=1, blocked=4, collapsed=2
+  Zone (40,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,20): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,20): victims=16, fires=1, blocked=24, collapsed=16
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=22, fires=5, blocked=33, collapsed=22
+  Zone (40,20): victims=0, fires=3, blocked=1, collapsed=0
+  Zone (0,30): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (10,30): victims=6, fires=2, blocked=11, collapsed=6
+  Zone (20,30): victims=16, fires=3, blocked=22, collapsed=16
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (10,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (20,40): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (45,1): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (38,38): 0 victims, 0 fires, 3 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (26,0): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (45,28): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (10,24): 1 victims, 1 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 4 -> 0 task(s) assigned
+============================================================
+
+  .. [scout_0] pos=(45, 0) action=move task=active: search_zone path_len=5
+  >> [scout_1] Report -> commander: 0 fires, 0 victims, 4 blocked roads
+  .. [scout_1] pos=(37, 38) action=move task=active: search_zone path_len=9
+  .. [scout_2] pos=(25, 0) action=move task=active: search_zone path_len=5
+  >> [scout_3] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_3] pos=(44, 28) action=move task=active: search_zone path_len=6
+  >> [scout_4] Report -> commander: 1 fires, 1 victims, 0 blocked roads
+  .. [scout_4] pos=(9, 24) action=move task=active: search_zone path_len=15
+  .. [firefighter_0] pos=(41, 21) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(12, 23) action=move task=active: extinguish_fire path_len=5
+  .. [firefighter_2] pos=(4, 20) action=move task=active: extinguish_fire path_len=16
+  .. [medic_0] pos=(20, 20) action=rescue task=none path_len=0
+  .. [medic_1] pos=(29, 19) action=move task=none path_len=0
+  .. [medic_2] pos=(10, 24) action=move task=active: rescue_victims path_len=8
+  .. [medic_3] pos=(49, 34) action=move task=active: rescue_victims path_len=23
+127.0.0.1 - - [08/Mar/2026 17:53:54] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 6
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_1: 0 fires, 0 victim-cells, 4 blocked, 4 collapsed
+[Commander] Report from scout_3: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_4: 1 fires, 1 victim-cells, 0 blocked, 0 collapsed
+
+============================================================
+[LLM Commander] Step 5 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 5
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=2, fires=1, blocked=4, collapsed=2
+  Zone (40,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,20): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,20): victims=16, fires=1, blocked=24, collapsed=16
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=22, fires=5, blocked=33, collapsed=22
+  Zone (40,20): victims=0, fires=3, blocked=1, collapsed=0
+  Zone (0,30): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (10,30): victims=6, fires=2, blocked=11, collapsed=6
+  Zone (20,30): victims=16, fires=3, blocked=22, collapsed=16
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (20,40): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (45,0): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (37,38): 0 victims, 0 fires, 4 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (25,0): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (44,28): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (9,24): 1 victims, 1 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 5 -> 0 task(s) assigned
+============================================================
+
+  .. [scout_0] pos=(44, 0) action=move task=active: search_zone path_len=4
+  >> [scout_1] Report -> commander: 0 fires, 0 victims, 3 blocked roads
+  .. [scout_1] pos=(37, 39) action=move task=active: search_zone path_len=8
+  >> [scout_2] Report -> commander: 1 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(24, 0) action=move task=active: search_zone path_len=4
+  >> [scout_3] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_3] pos=(43, 28) action=move task=active: search_zone path_len=5
+  >> [scout_4] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_4] pos=(8, 24) action=move task=active: search_zone path_len=14
+  .. [firefighter_0] pos=(41, 21) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(12, 22) action=move task=active: extinguish_fire path_len=4
+  .. [firefighter_2] pos=(5, 20) action=move task=active: extinguish_fire path_len=15
+  .. [medic_0] pos=(20, 20) action=move task=none path_len=0
+  .. [medic_1] pos=(29, 18) action=move task=none path_len=0
+  .. [medic_2] pos=(11, 24) action=move task=active: rescue_victims path_len=7
+  .. [medic_3] pos=(49, 33) action=move task=active: rescue_victims path_len=22
+127.0.0.1 - - [08/Mar/2026 17:53:55] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 7
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_1: 0 fires, 0 victim-cells, 3 blocked, 2 collapsed
+[Commander] Report from scout_2: 1 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_4: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+
+============================================================
+[LLM Commander] Step 6 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 6
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=2, fires=1, blocked=4, collapsed=2
+  Zone (40,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,20): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,20): victims=16, fires=1, blocked=24, collapsed=16
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=22, fires=5, blocked=33, collapsed=22
+  Zone (40,20): victims=0, fires=3, blocked=1, collapsed=0
+  Zone (0,30): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (10,30): victims=6, fires=3, blocked=11, collapsed=6
+  Zone (20,30): victims=16, fires=3, blocked=22, collapsed=16
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (20,40): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (44,0): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (37,39): 0 victims, 0 fires, 3 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (24,0): 0 victims, 1 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (43,28): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (8,24): 1 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 6 -> 0 task(s) assigned
+============================================================
+
+  .. [scout_0] pos=(43, 0) action=move task=active: search_zone path_len=3
+  >> [scout_1] Report -> commander: 1 fires, 0 victims, 3 blocked roads
+  .. [scout_1] pos=(36, 39) action=move task=active: search_zone path_len=7
+  >> [scout_2] Report -> commander: 1 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(23, 0) action=move task=active: search_zone path_len=3
+  >> [scout_3] Report -> commander: 0 fires, 0 victims, 1 blocked roads
+  .. [scout_3] pos=(42, 28) action=move task=active: search_zone path_len=4
+  >> [scout_4] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_4] pos=(7, 24) action=move task=active: search_zone path_len=13
+  .. [firefighter_0] pos=(41, 21) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(12, 21) action=move task=active: extinguish_fire path_len=3
+  .. [firefighter_2] pos=(6, 20) action=move task=active: extinguish_fire path_len=14
+  .. [medic_0] pos=(21, 20) action=move task=none path_len=0
+  .. [medic_1] pos=(29, 17) action=move task=none path_len=0
+  .. [medic_2] pos=(12, 24) action=move task=active: rescue_victims path_len=6
+  .. [medic_3] pos=(49, 32) action=move task=active: rescue_victims path_len=21
+127.0.0.1 - - [08/Mar/2026 17:53:59] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 8
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_1: 1 fires, 0 victim-cells, 3 blocked, 3 collapsed
+[Commander] Report from scout_2: 1 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 0 fires, 0 victim-cells, 1 blocked, 0 collapsed
+[Commander] Report from scout_4: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+
+============================================================
+[LLM Commander] Step 7 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 7
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=2, fires=1, blocked=4, collapsed=2
+  Zone (40,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,20): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,20): victims=16, fires=1, blocked=24, collapsed=16
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=22, fires=5, blocked=33, collapsed=22
+  Zone (40,20): victims=0, fires=3, blocked=1, collapsed=0
+  Zone (0,30): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (10,30): victims=6, fires=3, blocked=11, collapsed=6
+  Zone (20,30): victims=16, fires=3, blocked=22, collapsed=16
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (20,40): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (43,0): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (36,39): 0 victims, 1 fires, 3 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (23,0): 0 victims, 1 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (42,28): 0 victims, 0 fires, 1 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (7,24): 1 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 7 -> 0 task(s) assigned
+============================================================
+
+  >> [scout_0] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_0] pos=(42, 0) action=move task=active: search_zone path_len=2
+  >> [scout_1] Report -> commander: 1 fires, 0 victims, 4 blocked roads
+  .. [scout_1] pos=(35, 39) action=move task=active: search_zone path_len=6
+  >> [scout_2] Report -> commander: 1 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(22, 0) action=move task=active: search_zone path_len=2
+  >> [scout_3] Report -> commander: 1 fires, 1 victims, 1 blocked roads
+  .. [scout_3] pos=(41, 28) action=move task=active: search_zone path_len=3
+  >> [scout_4] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_4] pos=(6, 24) action=move task=active: search_zone path_len=12
+  .. [firefighter_0] pos=(41, 21) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(12, 20) action=move task=active: extinguish_fire path_len=2
+  .. [firefighter_2] pos=(7, 20) action=move task=active: extinguish_fire path_len=13
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(29, 16) action=move task=none path_len=0
+  .. [medic_2] pos=(12, 23) action=move task=active: rescue_victims path_len=5
+  .. [medic_3] pos=(48, 32) action=move task=active: rescue_victims path_len=20
+127.0.0.1 - - [08/Mar/2026 17:54:00] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 9
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_0: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_1: 1 fires, 0 victim-cells, 4 blocked, 4 collapsed
+[Commander] Report from scout_2: 1 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 1 fires, 1 victim-cells, 1 blocked, 3 collapsed
+[Commander] Report from scout_4: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+
+============================================================
+[LLM Commander] Step 8 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 8
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=2, fires=1, blocked=4, collapsed=2
+  Zone (40,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,20): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,20): victims=16, fires=1, blocked=24, collapsed=16
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=22, fires=5, blocked=33, collapsed=22
+  Zone (40,20): victims=0, fires=3, blocked=1, collapsed=0
+  Zone (0,30): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (10,30): victims=6, fires=3, blocked=11, collapsed=6
+  Zone (20,30): victims=16, fires=3, blocked=22, collapsed=16
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (20,40): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (42,0): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (35,39): 0 victims, 1 fires, 4 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (22,0): 0 victims, 1 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (41,28): 1 victims, 1 fires, 1 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (6,24): 1 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 8 -> 0 task(s) assigned
+============================================================
+
+  >> [scout_0] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_0] pos=(41, 0) action=move task=active: search_zone path_len=1
+  >> [scout_1] Report -> commander: 1 fires, 0 victims, 3 blocked roads
+  .. [scout_1] pos=(34, 39) action=move task=active: search_zone path_len=5
+  >> [scout_2] Report -> commander: 1 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(21, 0) action=move task=active: search_zone path_len=1
+[scout_3] Unexpected obstacle at (40, 29), replanning...
+  ~~ [scout_3] Replanned path (len=5)
+  >> [scout_3] Report -> commander: 1 fires, 1 victims, 2 blocked roads
+  .. [scout_3] pos=(40, 28) action=move task=active: search_zone path_len=4
+  .. [scout_4] pos=(5, 24) action=move task=active: search_zone path_len=11
+  .. [firefighter_0] pos=(41, 21) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(11, 20) action=move task=active: extinguish_fire path_len=1
+  .. [firefighter_2] pos=(8, 20) action=move task=active: extinguish_fire path_len=12
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(29, 15) action=move task=none path_len=0
+  .. [medic_2] pos=(12, 22) action=move task=active: rescue_victims path_len=4
+  .. [medic_3] pos=(47, 32) action=move task=active: rescue_victims path_len=19
+127.0.0.1 - - [08/Mar/2026 17:54:02] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 10
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_0: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_1: 1 fires, 0 victim-cells, 3 blocked, 4 collapsed
+[Commander] Report from scout_2: 1 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 1 fires, 1 victim-cells, 2 blocked, 6 collapsed
+
+============================================================
+[LLM Commander] Step 9 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 9
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=2, fires=1, blocked=4, collapsed=2
+  Zone (40,10): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,20): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,20): victims=16, fires=1, blocked=24, collapsed=16
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=22, fires=5, blocked=33, collapsed=22
+  Zone (40,20): victims=0, fires=4, blocked=1, collapsed=0
+  Zone (0,30): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (10,30): victims=6, fires=3, blocked=11, collapsed=6
+  Zone (20,30): victims=16, fires=3, blocked=22, collapsed=16
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (20,40): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (41,0): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (34,39): 0 victims, 1 fires, 3 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (21,0): 0 victims, 1 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (40,28): 1 victims, 1 fires, 2 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (5,24): 0 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 9 -> 0 task(s) assigned
+============================================================
+
+  >> [scout_0] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_0] pos=(40, 0) action=scan task=none path_len=0
+  >> [scout_1] Report -> commander: 1 fires, 0 victims, 2 blocked roads
+  .. [scout_1] pos=(33, 39) action=move task=active: search_zone path_len=4
+  >> [scout_2] Report -> commander: 1 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(20, 0) action=scan task=none path_len=0
+  >> [scout_3] Report -> commander: 1 fires, 1 victims, 1 blocked roads
+  .. [scout_3] pos=(41, 28) action=move task=active: search_zone path_len=3
+  .. [scout_4] pos=(4, 24) action=move task=active: search_zone path_len=10
+  .. [firefighter_0] pos=(41, 21) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(10, 20) action=extinguish task=none path_len=0
+  .. [firefighter_2] pos=(9, 20) action=move task=active: extinguish_fire path_len=11
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(28, 15) action=move task=none path_len=0
+  .. [medic_2] pos=(12, 21) action=move task=active: rescue_victims path_len=3
+  .. [medic_3] pos=(46, 32) action=move task=active: rescue_victims path_len=18
+127.0.0.1 - - [08/Mar/2026 17:54:03] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 11
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_0: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_1: 1 fires, 0 victim-cells, 2 blocked, 3 collapsed
+[Commander] Report from scout_2: 1 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 1 fires, 1 victim-cells, 1 blocked, 3 collapsed
+
+============================================================
+[LLM Commander] Step 10 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 10
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=12, fires=0, blocked=17, collapsed=12
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=4, fires=1, blocked=7, collapsed=4
+  Zone (40,10): victims=1, fires=1, blocked=3, collapsed=1
+  Zone (0,20): victims=6, fires=0, blocked=12, collapsed=6
+  Zone (10,20): victims=20, fires=0, blocked=30, collapsed=20
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=30, fires=4, blocked=43, collapsed=30
+  Zone (40,20): victims=4, fires=4, blocked=8, collapsed=4
+  Zone (0,30): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (10,30): victims=12, fires=1, blocked=19, collapsed=12
+  Zone (20,30): victims=25, fires=1, blocked=34, collapsed=25
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=2, fires=3, blocked=4, collapsed=2
+  Zone (20,40): victims=3, fires=6, blocked=5, collapsed=3
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  scout_0 (scout) at (40,0) - AVAILABLE
+  scout_2 (scout) at (20,0) - AVAILABLE
+
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (40,0): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (33,39): 0 victims, 1 fires, 2 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (20,0): 0 victims, 1 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (41,28): 1 victims, 1 fires, 1 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (4,24): 0 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[
+  {
+    "agent_id": "scout_0",
+    "task_type": "search_zone",
+    "target_x": 40,
+    "target_y": 10,
+    "reason": "Explore zone with reported victims and fire to inform rescue and firefighting priorities"
+  },
+  {
+    "agent_id": "scout_2",
+    "task_type": "search_zone",
+    "target_x": 20,
+    "target_y": 10,
+    "reason": "Investigate high‑victim, heavily blocked zone to enable later medics and firefighters deployment"
+  }
+]
+------------------------------------------------------------
+[Commander] Computed path for scout_0: length 13
+[Commander] Computed path for scout_2: length 11
+[LLM Commander] Step 10 -> 2 task(s) assigned
+  >> scout_0: search_zone at (40, 10) (path=13 steps)
+  >> scout_2: search_zone at (20, 10) (path=11 steps)
+============================================================
+
+>> [MsgBus] 2 commands sent to agents
+  << [scout_0] Received task from commander: TASK: search_zone at (40,10). Explore zone with reported victims and fire to inform rescue and firefighting priorities
+  OK [scout_0] Accepted task 'search_zone' -> (40, 10) with commander path (len=13)
+  >> [scout_0] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_0] pos=(40, 0) action=move task=active: search_zone path_len=12
+  >> [scout_1] Report -> commander: 1 fires, 0 victims, 1 blocked roads
+  .. [scout_1] pos=(32, 39) action=move task=active: search_zone path_len=3
+  << [scout_2] Received task from commander: TASK: search_zone at (20,10). Investigate high‑victim, heavily blocked zone to enable later medics and firefighters deployment
+  OK [scout_2] Accepted task 'search_zone' -> (20, 10) with commander path (len=11)
+  >> [scout_2] Report -> commander: 1 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(20, 0) action=move task=active: search_zone path_len=10
+  >> [scout_3] Report -> commander: 1 fires, 1 victims, 1 blocked roads
+  .. [scout_3] pos=(41, 29) action=move task=active: search_zone path_len=2
+  .. [scout_4] pos=(3, 24) action=move task=active: search_zone path_len=9
+  .. [firefighter_0] pos=(41, 21) action=move task=none path_len=0
+  .. [firefighter_1] pos=(10, 20) action=move task=none path_len=0
+  .. [firefighter_2] pos=(10, 20) action=move task=active: extinguish_fire path_len=10
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(27, 15) action=noop task=none path_len=0
+  .. [medic_2] pos=(12, 20) action=move task=active: rescue_victims path_len=2
+  .. [medic_3] pos=(45, 32) action=move task=active: rescue_victims path_len=17
+127.0.0.1 - - [08/Mar/2026 17:54:12] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 12
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_0: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_1: 1 fires, 0 victim-cells, 1 blocked, 2 collapsed
+[Commander] Report from scout_2: 1 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 1 fires, 1 victim-cells, 1 blocked, 3 collapsed
+
+============================================================
+[LLM Commander] Step 11 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 11
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=12, fires=0, blocked=17, collapsed=12
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=4, fires=2, blocked=7, collapsed=4
+  Zone (40,10): victims=1, fires=1, blocked=3, collapsed=1
+  Zone (0,20): victims=6, fires=0, blocked=12, collapsed=6
+  Zone (10,20): victims=20, fires=0, blocked=30, collapsed=20
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=30, fires=4, blocked=43, collapsed=30
+  Zone (40,20): victims=4, fires=4, blocked=8, collapsed=4
+  Zone (0,30): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (10,30): victims=12, fires=1, blocked=19, collapsed=12
+  Zone (20,30): victims=25, fires=1, blocked=34, collapsed=25
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=2, fires=3, blocked=4, collapsed=2
+  Zone (20,40): victims=3, fires=6, blocked=5, collapsed=3
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (40,0): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (32,39): 0 victims, 1 fires, 1 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (20,0): 0 victims, 1 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (41,29): 1 victims, 1 fires, 1 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (3,24): 0 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 11 -> 0 task(s) assigned
+============================================================
+
+  >> [scout_0] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_0] pos=(39, 0) action=move task=active: search_zone path_len=11
+  >> [scout_1] Report -> commander: 0 fires, 0 victims, 1 blocked roads
+  .. [scout_1] pos=(31, 39) action=move task=active: search_zone path_len=2
+  >> [scout_2] Report -> commander: 1 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(20, 1) action=move task=active: search_zone path_len=9
+  >> [scout_3] Report -> commander: 1 fires, 1 victims, 1 blocked roads
+  .. [scout_3] pos=(41, 30) action=move task=active: search_zone path_len=1
+  .. [scout_4] pos=(2, 24) action=move task=active: search_zone path_len=8
+  .. [firefighter_0] pos=(42, 21) action=move task=none path_len=0
+  .. [firefighter_1] pos=(10, 19) action=move task=none path_len=0
+  .. [firefighter_2] pos=(11, 20) action=move task=active: extinguish_fire path_len=9
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(27, 15) action=noop task=none path_len=0
+  .. [medic_2] pos=(11, 20) action=move task=active: rescue_victims path_len=1
+  .. [medic_3] pos=(44, 32) action=move task=active: rescue_victims path_len=16
+127.0.0.1 - - [08/Mar/2026 17:54:14] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 13
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_0: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_1: 0 fires, 0 victim-cells, 1 blocked, 1 collapsed
+[Commander] Report from scout_2: 1 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 1 fires, 1 victim-cells, 1 blocked, 2 collapsed
+
+============================================================
+[LLM Commander] Step 12 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 12
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=12, fires=0, blocked=17, collapsed=12
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=4, fires=2, blocked=7, collapsed=4
+  Zone (40,10): victims=1, fires=1, blocked=3, collapsed=1
+  Zone (0,20): victims=6, fires=0, blocked=12, collapsed=6
+  Zone (10,20): victims=20, fires=0, blocked=30, collapsed=20
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=30, fires=4, blocked=43, collapsed=30
+  Zone (40,20): victims=4, fires=4, blocked=8, collapsed=4
+  Zone (0,30): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (10,30): victims=12, fires=1, blocked=19, collapsed=12
+  Zone (20,30): victims=25, fires=1, blocked=34, collapsed=25
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=2, fires=3, blocked=4, collapsed=2
+  Zone (20,40): victims=3, fires=6, blocked=5, collapsed=3
+  Zone (30,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (39,0): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (31,39): 0 victims, 0 fires, 1 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (20,1): 0 victims, 1 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (41,30): 1 victims, 1 fires, 1 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (2,24): 0 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 12 -> 0 task(s) assigned
+============================================================
+
+  >> [scout_0] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_0] pos=(39, 1) action=move task=active: search_zone path_len=10
+  .. [scout_1] pos=(30, 39) action=move task=active: search_zone path_len=1
+  >> [scout_2] Report -> commander: 2 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(20, 2) action=move task=active: search_zone path_len=8
+  >> [scout_3] Report -> commander: 1 fires, 1 victims, 2 blocked roads
+  .. [scout_3] pos=(40, 30) action=scan task=none path_len=0
+  .. [scout_4] pos=(1, 24) action=move task=active: search_zone path_len=7
+  .. [firefighter_0] pos=(42, 22) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(10, 18) action=move task=none path_len=0
+  .. [firefighter_2] pos=(12, 20) action=move task=active: extinguish_fire path_len=8
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(27, 15) action=noop task=none path_len=0
+  .. [medic_2] pos=(10, 20) action=rescue task=none path_len=0
+  .. [medic_3] pos=(43, 32) action=move task=active: rescue_victims path_len=15
+127.0.0.1 - - [08/Mar/2026 17:54:16] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 14
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_0: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_2: 2 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 1 fires, 1 victim-cells, 2 blocked, 4 collapsed
+
+============================================================
+[LLM Commander] Step 13 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 13
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=4, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=12, fires=0, blocked=17, collapsed=12
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=4, fires=2, blocked=7, collapsed=4
+  Zone (40,10): victims=1, fires=1, blocked=3, collapsed=1
+  Zone (0,20): victims=6, fires=0, blocked=12, collapsed=6
+  Zone (10,20): victims=20, fires=0, blocked=30, collapsed=20
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=30, fires=4, blocked=43, collapsed=30
+  Zone (40,20): victims=4, fires=4, blocked=8, collapsed=4
+  Zone (0,30): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (10,30): victims=12, fires=1, blocked=19, collapsed=12
+  Zone (20,30): victims=25, fires=1, blocked=34, collapsed=25
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=2, fires=3, blocked=4, collapsed=2
+  Zone (20,40): victims=3, fires=7, blocked=5, collapsed=3
+  Zone (30,40): victims=0, fires=4, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  scout_3 (scout) at (40,30) - AVAILABLE
+
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (39,1): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (30,39): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (20,2): 0 victims, 2 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (40,30): 1 victims, 1 fires, 2 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (1,24): 0 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[
+  {
+    "agent_id": "scout_3",
+    "task_type": "search_zone",
+    "target_x": 30,
+    "target_y": 30,
+    "reason": "Explore high‑victim zone with fires and blocked roads to guide rescue and fire‑suppression assets"
+  }
+]
+------------------------------------------------------------
+[Commander] Computed path for scout_3: length 13
+[LLM Commander] Step 13 -> 1 task(s) assigned
+  >> scout_3: search_zone at (30, 30) (path=13 steps)
+============================================================
+
+>> [MsgBus] 1 commands sent to agents
+  >> [scout_0] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_0] pos=(39, 2) action=move task=active: search_zone path_len=9
+  .. [scout_1] pos=(30, 40) action=scan task=none path_len=0
+  >> [scout_2] Report -> commander: 2 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(20, 3) action=move task=active: search_zone path_len=7
+  << [scout_3] Received task from commander: TASK: search_zone at (30,30). Explore high‑victim zone with fires and blocked roads to guide rescue and fire‑suppression assets
+  OK [scout_3] Accepted task 'search_zone' -> (30, 30) with commander path (len=13)
+  >> [scout_3] Report -> commander: 1 fires, 1 victims, 2 blocked roads
+  .. [scout_3] pos=(40, 30) action=move task=active: search_zone path_len=12
+  .. [scout_4] pos=(0, 24) action=move task=active: search_zone path_len=6
+  .. [firefighter_0] pos=(42, 22) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(10, 17) action=move task=none path_len=0
+  .. [firefighter_2] pos=(13, 20) action=move task=active: extinguish_fire path_len=7
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(27, 15) action=noop task=none path_len=0
+  .. [medic_2] pos=(10, 20) action=move task=none path_len=0
+  .. [medic_3] pos=(42, 32) action=move task=active: rescue_victims path_len=14
+127.0.0.1 - - [08/Mar/2026 17:54:21] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 15
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_0: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_2: 2 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 1 fires, 1 victim-cells, 2 blocked, 4 collapsed
+
+============================================================
+[LLM Commander] Step 14 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 14
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=12, fires=0, blocked=17, collapsed=12
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=4, fires=2, blocked=7, collapsed=4
+  Zone (40,10): victims=1, fires=1, blocked=3, collapsed=1
+  Zone (0,20): victims=6, fires=0, blocked=12, collapsed=6
+  Zone (10,20): victims=20, fires=0, blocked=30, collapsed=20
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=30, fires=4, blocked=43, collapsed=30
+  Zone (40,20): victims=4, fires=4, blocked=8, collapsed=4
+  Zone (0,30): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (10,30): victims=12, fires=1, blocked=19, collapsed=12
+  Zone (20,30): victims=25, fires=1, blocked=34, collapsed=25
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=2, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=2, fires=3, blocked=4, collapsed=2
+  Zone (20,40): victims=3, fires=7, blocked=5, collapsed=3
+  Zone (30,40): victims=0, fires=4, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  scout_1 (scout) at (30,40) - AVAILABLE
+
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (39,2): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (30,40): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (20,3): 0 victims, 2 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (40,30): 1 victims, 1 fires, 2 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (0,24): 0 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[
+  {
+    "agent_id": "scout_1",
+    "task_type": "search_zone",
+    "target_x": 20,
+    "target_y": 20,
+    "reason": "High victim count and fires; scout needed to assess conditions for medics and firefighters"
+  }
+]
+------------------------------------------------------------
+[Commander] Computed path for scout_1: length 31
+[LLM Commander] Step 14 -> 1 task(s) assigned
+  >> scout_1: search_zone at (20, 20) (path=31 steps)
+============================================================
+
+>> [MsgBus] 1 commands sent to agents
+  >> [scout_0] Report -> commander: 0 fires, 1 victims, 0 blocked roads
+  .. [scout_0] pos=(39, 3) action=move task=active: search_zone path_len=8
+  << [scout_1] Received task from commander: TASK: search_zone at (20,20). High victim count and fires; scout needed to assess conditions for medics and firefighters
+  OK [scout_1] Accepted task 'search_zone' -> (20, 20) with commander path (len=31)
+  .. [scout_1] pos=(30, 40) action=move task=active: search_zone path_len=30
+  >> [scout_2] Report -> commander: 3 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(20, 4) action=move task=active: search_zone path_len=6
+  >> [scout_3] Report -> commander: 2 fires, 1 victims, 3 blocked roads
+  .. [scout_3] pos=(39, 30) action=move task=active: search_zone path_len=11
+  .. [scout_4] pos=(0, 25) action=move task=active: search_zone path_len=5
+  .. [firefighter_0] pos=(42, 22) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(10, 16) action=move task=none path_len=0
+  .. [firefighter_2] pos=(14, 20) action=move task=active: extinguish_fire path_len=6
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(27, 15) action=noop task=none path_len=0
+  .. [medic_2] pos=(9, 20) action=move task=none path_len=0
+  .. [medic_3] pos=(42, 31) action=move task=active: rescue_victims path_len=13
+127.0.0.1 - - [08/Mar/2026 17:54:24] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 16
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_0: 0 fires, 1 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_2: 3 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 2 fires, 1 victim-cells, 3 blocked, 6 collapsed
+
+============================================================
+[LLM Commander] Step 15 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 15
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=4, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=12, fires=0, blocked=17, collapsed=12
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=4, fires=2, blocked=7, collapsed=4
+  Zone (40,10): victims=1, fires=1, blocked=3, collapsed=1
+  Zone (0,20): victims=6, fires=0, blocked=12, collapsed=6
+  Zone (10,20): victims=20, fires=0, blocked=30, collapsed=20
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=30, fires=4, blocked=43, collapsed=30
+  Zone (40,20): victims=4, fires=4, blocked=8, collapsed=4
+  Zone (0,30): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (10,30): victims=12, fires=1, blocked=19, collapsed=12
+  Zone (20,30): victims=25, fires=1, blocked=34, collapsed=25
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=2, fires=3, blocked=4, collapsed=2
+  Zone (20,40): victims=3, fires=7, blocked=5, collapsed=3
+  Zone (30,40): victims=0, fires=4, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (39,3): 1 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (30,40): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (20,4): 0 victims, 3 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (39,30): 1 victims, 2 fires, 3 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (0,25): 0 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 15 -> 0 task(s) assigned
+============================================================
+
+  .. [scout_0] pos=(39, 4) action=move task=active: search_zone path_len=7
+  .. [scout_1] pos=(30, 39) action=move task=active: search_zone path_len=29
+  >> [scout_2] Report -> commander: 2 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(20, 5) action=move task=active: search_zone path_len=5
+  >> [scout_3] Report -> commander: 1 fires, 1 victims, 4 blocked roads
+  .. [scout_3] pos=(39, 31) action=move task=active: search_zone path_len=10
+  .. [scout_4] pos=(0, 26) action=move task=active: search_zone path_len=4
+  .. [firefighter_0] pos=(42, 22) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(10, 15) action=move task=none path_len=0
+  .. [firefighter_2] pos=(15, 20) action=move task=active: extinguish_fire path_len=5
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(27, 15) action=noop task=none path_len=0
+  .. [medic_2] pos=(8, 20) action=noop task=none path_len=0
+  .. [medic_3] pos=(42, 30) action=move task=active: rescue_victims path_len=12
+127.0.0.1 - - [08/Mar/2026 17:54:26] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 17
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_2: 2 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 1 fires, 1 victim-cells, 4 blocked, 3 collapsed
+
+============================================================
+[LLM Commander] Step 16 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 16
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=4, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=12, fires=0, blocked=17, collapsed=12
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=4, fires=2, blocked=7, collapsed=4
+  Zone (40,10): victims=1, fires=1, blocked=3, collapsed=1
+  Zone (0,20): victims=6, fires=0, blocked=12, collapsed=6
+  Zone (10,20): victims=20, fires=0, blocked=30, collapsed=20
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=30, fires=4, blocked=43, collapsed=30
+  Zone (40,20): victims=4, fires=4, blocked=8, collapsed=4
+  Zone (0,30): victims=0, fires=7, blocked=0, collapsed=0
+  Zone (10,30): victims=12, fires=1, blocked=19, collapsed=12
+  Zone (20,30): victims=25, fires=1, blocked=34, collapsed=25
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=2, fires=3, blocked=4, collapsed=2
+  Zone (20,40): victims=3, fires=7, blocked=5, collapsed=3
+  Zone (30,40): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (39,4): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (30,39): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (20,5): 0 victims, 2 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (39,31): 1 victims, 1 fires, 4 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (0,26): 0 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 16 -> 0 task(s) assigned
+============================================================
+
+  .. [scout_0] pos=(40, 4) action=move task=active: search_zone path_len=6
+  >> [scout_1] Report -> commander: 0 fires, 0 victims, 1 blocked roads
+  .. [scout_1] pos=(30, 38) action=move task=active: search_zone path_len=28
+  >> [scout_2] Report -> commander: 2 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(20, 6) action=move task=active: search_zone path_len=4
+  >> [scout_3] Report -> commander: 1 fires, 2 victims, 6 blocked roads
+  .. [scout_3] pos=(38, 31) action=move task=active: search_zone path_len=9
+  .. [scout_4] pos=(0, 27) action=move task=active: search_zone path_len=3
+  .. [firefighter_0] pos=(42, 22) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(10, 14) action=move task=none path_len=0
+[firefighter_2] Unexpected obstacle at (17, 20), replanning...
+  ~~ [firefighter_2] Replanned path (len=7)
+  .. [firefighter_2] pos=(16, 20) action=move task=active: extinguish_fire path_len=6
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(27, 15) action=noop task=none path_len=0
+  .. [medic_2] pos=(8, 20) action=noop task=none path_len=0
+  .. [medic_3] pos=(41, 30) action=move task=active: rescue_victims path_len=11
+127.0.0.1 - - [08/Mar/2026 17:54:27] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 18
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_1: 0 fires, 0 victim-cells, 1 blocked, 0 collapsed
+[Commander] Report from scout_2: 2 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 1 fires, 2 victim-cells, 6 blocked, 5 collapsed
+
+============================================================
+[LLM Commander] Step 17 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 17
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=12, fires=0, blocked=17, collapsed=12
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=4, fires=2, blocked=7, collapsed=4
+  Zone (40,10): victims=1, fires=1, blocked=3, collapsed=1
+  Zone (0,20): victims=6, fires=0, blocked=12, collapsed=6
+  Zone (10,20): victims=20, fires=0, blocked=30, collapsed=20
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=30, fires=4, blocked=43, collapsed=30
+  Zone (40,20): victims=4, fires=4, blocked=8, collapsed=4
+  Zone (0,30): victims=0, fires=7, blocked=0, collapsed=0
+  Zone (10,30): victims=12, fires=1, blocked=19, collapsed=12
+  Zone (20,30): victims=25, fires=1, blocked=34, collapsed=25
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=2, fires=3, blocked=4, collapsed=2
+  Zone (20,40): victims=3, fires=7, blocked=5, collapsed=3
+  Zone (30,40): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (40,4): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (30,38): 0 victims, 0 fires, 1 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (20,6): 0 victims, 2 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (38,31): 2 victims, 1 fires, 6 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (0,27): 0 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 17 -> 0 task(s) assigned
+============================================================
+
+  .. [scout_0] pos=(40, 5) action=move task=active: search_zone path_len=5
+  >> [scout_1] Report -> commander: 0 fires, 0 victims, 1 blocked roads
+  .. [scout_1] pos=(30, 37) action=move task=active: search_zone path_len=27
+  >> [scout_2] Report -> commander: 2 fires, 0 victims, 0 blocked roads
+  .. [scout_2] pos=(20, 7) action=move task=active: search_zone path_len=3
+[scout_3] Unexpected obstacle at (37, 30), replanning...
+  ~~ [scout_3] Replanned path (len=9)
+  >> [scout_3] Report -> commander: 1 fires, 2 victims, 6 blocked roads
+  .. [scout_3] pos=(37, 31) action=move task=active: search_zone path_len=8
+  .. [scout_4] pos=(0, 28) action=move task=active: search_zone path_len=2
+  .. [firefighter_0] pos=(42, 22) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(11, 14) action=move task=none path_len=0
+  .. [firefighter_2] pos=(16, 19) action=move task=active: extinguish_fire path_len=5
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(27, 15) action=noop task=none path_len=0
+  .. [medic_2] pos=(8, 20) action=noop task=none path_len=0
+  .. [medic_3] pos=(40, 30) action=move task=active: rescue_victims path_len=10
+127.0.0.1 - - [08/Mar/2026 17:54:29] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 19
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_1: 0 fires, 0 victim-cells, 1 blocked, 0 collapsed
+[Commander] Report from scout_2: 2 fires, 0 victim-cells, 0 blocked, 0 collapsed
+[Commander] Report from scout_3: 1 fires, 2 victim-cells, 6 blocked, 6 collapsed
+
+============================================================
+[LLM Commander] Step 18 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 18
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=12, fires=0, blocked=17, collapsed=12
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=4, fires=2, blocked=7, collapsed=4
+  Zone (40,10): victims=1, fires=1, blocked=3, collapsed=1
+  Zone (0,20): victims=6, fires=0, blocked=12, collapsed=6
+  Zone (10,20): victims=20, fires=0, blocked=30, collapsed=20
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=30, fires=4, blocked=43, collapsed=30
+  Zone (40,20): victims=4, fires=5, blocked=8, collapsed=4
+  Zone (0,30): victims=0, fires=7, blocked=0, collapsed=0
+  Zone (10,30): victims=12, fires=1, blocked=19, collapsed=12
+  Zone (20,30): victims=25, fires=1, blocked=34, collapsed=25
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=2, fires=3, blocked=4, collapsed=2
+  Zone (20,40): victims=3, fires=7, blocked=5, collapsed=3
+  Zone (30,40): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=1, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (40,5): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (30,37): 0 victims, 0 fires, 1 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (20,7): 0 victims, 2 fires, 0 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (37,31): 2 victims, 1 fires, 6 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (0,28): 0 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 18 -> 0 task(s) assigned
+============================================================
+
+  .. [scout_0] pos=(40, 6) action=move task=active: search_zone path_len=4
+  >> [scout_1] Report -> commander: 0 fires, 0 victims, 1 blocked roads
+  .. [scout_1] pos=(29, 37) action=move task=active: search_zone path_len=26
+  >> [scout_2] Report -> commander: 2 fires, 0 victims, 1 blocked roads
+  .. [scout_2] pos=(20, 8) action=move task=active: search_zone path_len=2
+  >> [scout_3] Report -> commander: 1 fires, 1 victims, 7 blocked roads
+  .. [scout_3] pos=(36, 31) action=move task=active: search_zone path_len=7
+  .. [scout_4] pos=(0, 29) action=move task=active: search_zone path_len=1
+  .. [firefighter_0] pos=(42, 22) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(11, 13) action=move task=none path_len=0
+  .. [firefighter_2] pos=(17, 19) action=move task=active: extinguish_fire path_len=4
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(27, 15) action=noop task=none path_len=0
+  .. [medic_2] pos=(8, 20) action=noop task=none path_len=0
+[medic_3] Unexpected obstacle at (38, 30), replanning...
+  ~~ [medic_3] Replanned path (len=12)
+  .. [medic_3] pos=(39, 30) action=move task=active: rescue_victims path_len=11
+127.0.0.1 - - [08/Mar/2026 17:54:31] "GET /step HTTP/1.1" 200 -
+
+############################################################
+### STEP 20
+############################################################
+
+>> [MsgBus] 5 reports delivered to commander
+[Commander] Report from scout_1: 0 fires, 0 victim-cells, 1 blocked, 0 collapsed
+[Commander] Report from scout_2: 2 fires, 0 victim-cells, 1 blocked, 0 collapsed
+[Commander] Report from scout_3: 1 fires, 1 victim-cells, 7 blocked, 6 collapsed
+
+============================================================
+[LLM Commander] Step 19 | Prompt sent to LLM:
+------------------------------------------------------------
+You are the Commander of an urban disaster response operation after an earthquake.
+Your role is to assign tasks to field agents to maximize civilian survival.
+
+CURRENT STEP: 19
+
+ZONE SUMMARIES (noisy estimates from environment):
+  Zone (0,0): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,0): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (20,0): victims=0, fires=6, blocked=0, collapsed=0
+  Zone (30,0): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (40,0): victims=0, fires=1, blocked=0, collapsed=0
+  Zone (0,10): victims=0, fires=0, blocked=0, collapsed=0
+  Zone (10,10): victims=12, fires=0, blocked=17, collapsed=12
+  Zone (20,10): victims=9, fires=2, blocked=16, collapsed=9
+  Zone (30,10): victims=4, fires=2, blocked=7, collapsed=4
+  Zone (40,10): victims=1, fires=1, blocked=3, collapsed=1
+  Zone (0,20): victims=6, fires=0, blocked=12, collapsed=6
+  Zone (10,20): victims=20, fires=0, blocked=30, collapsed=20
+  Zone (20,20): victims=30, fires=5, blocked=51, collapsed=30
+  Zone (30,20): victims=30, fires=4, blocked=43, collapsed=30
+  Zone (40,20): victims=4, fires=5, blocked=8, collapsed=4
+  Zone (0,30): victims=0, fires=7, blocked=0, collapsed=0
+  Zone (10,30): victims=12, fires=1, blocked=19, collapsed=12
+  Zone (20,30): victims=25, fires=1, blocked=34, collapsed=25
+  Zone (30,30): victims=20, fires=3, blocked=37, collapsed=20
+  Zone (40,30): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (0,40): victims=0, fires=3, blocked=0, collapsed=0
+  Zone (10,40): victims=2, fires=3, blocked=4, collapsed=2
+  Zone (20,40): victims=3, fires=7, blocked=5, collapsed=3
+  Zone (30,40): victims=0, fires=5, blocked=0, collapsed=0
+  Zone (40,40): victims=0, fires=2, blocked=0, collapsed=0
+
+
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+  No free agents available.
+
+RECENT AGENT REPORTS:
+  [report] From scout_0: Agent scout_0 at (40,6): 0 victims, 0 fires, 0 blocked roads nearby.
+  [report] From scout_1: Agent scout_1 at (29,37): 0 victims, 0 fires, 1 blocked roads nearby.
+  [report] From scout_2: Agent scout_2 at (20,8): 0 victims, 2 fires, 1 blocked roads nearby.
+  [report] From scout_3: Agent scout_3 at (36,31): 1 victims, 1 fires, 7 blocked roads nearby.
+  [report] From scout_4: Agent scout_4 at (0,29): 0 victims, 0 fires, 0 blocked roads nearby.
+
+
+AGENT TYPES AND CAPABILITIES:
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
+- firefighter_*: Can extinguish fires
+- medic_*: Can rescue and treat victims, clear debris
+
+Respond with a JSON array of task assignments. Each assignment:
+{
+  "agent_id": "<agent_id>",
+  "task_type": "search_zone|rescue_victims|extinguish_fire|move_to",
+  "target_x": <int>,
+  "target_y": <int>,
+  "reason": "<brief reason>"
+}
+
+PRIORITIES:
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
+
+Respond ONLY with the JSON array, no other text.
+------------------------------------------------------------
+[LLM Commander] Raw LLM response:
+------------------------------------------------------------
+[]
+------------------------------------------------------------
+[LLM Commander] Step 19 -> 0 task(s) assigned
+============================================================
+
+  .. [scout_0] pos=(40, 7) action=move task=active: search_zone path_len=3
+  >> [scout_1] Report -> commander: 0 fires, 1 victims, 2 blocked roads
+  .. [scout_1] pos=(28, 37) action=move task=active: search_zone path_len=25
+  >> [scout_2] Report -> commander: 1 fires, 0 victims, 2 blocked roads
+  .. [scout_2] pos=(20, 9) action=move task=active: search_zone path_len=1
+  >> [scout_3] Report -> commander: 1 fires, 1 victims, 7 blocked roads
+  .. [scout_3] pos=(35, 31) action=move task=active: search_zone path_len=6
+  .. [scout_4] pos=(0, 30) action=scan task=none path_len=0
+  .. [firefighter_0] pos=(42, 22) action=noop task=none path_len=0
+  .. [firefighter_1] pos=(11, 12) action=move task=none path_len=0
+  .. [firefighter_2] pos=(18, 19) action=move task=active: extinguish_fire path_len=3
+  .. [medic_0] pos=(21, 21) action=noop task=none path_len=0
+  .. [medic_1] pos=(27, 15) action=noop task=none path_len=0
+  .. [medic_2] pos=(8, 20) action=noop task=none path_len=0
+  .. [medic_3] pos=(39, 31) action=move task=active: rescue_victims path_len=10
+127.0.0.1 - - [08/Mar/2026 17:54:34] "GET /step HTTP/1.1" 200 -

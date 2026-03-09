@@ -155,6 +155,13 @@ class UrbanDisasterEnv:
         if self.step_count >= self.max_steps:
             self.done = True
 
+        # Early termination: no living victims remain on the map
+        metrics = self.get_metrics()
+        if metrics['alive_unrescued'] == 0 and metrics['total_victims'] > 0:
+            self.done = True
+            print(f"\n** All victims accounted for at step {self.step_count}: "
+                  f"{metrics['rescued']} rescued, {metrics['dead']} dead. Ending early. **\n")
+
         # Log
         self.event_log.append({
             'step': self.step_count,

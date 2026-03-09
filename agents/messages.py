@@ -143,9 +143,10 @@ def make_report(agent_id: str, position: tuple, observations: dict, step: int) -
     victims = summary.get('num_victims_nearby', observations.get('num_victims_nearby', 0))
     fires = summary.get('fires_nearby', observations.get('fires_nearby', 0))
     blocked = summary.get('blocked_nearby', observations.get('blocked_nearby', 0))
+    collapsed = summary.get('collapsed_nearby', observations.get('collapsed_nearby', 0))
 
     content = (f"Agent {agent_id} at ({position[0]},{position[1]}): "
-               f"{victims} victims, {fires} fires, {blocked} blocked roads nearby.")
+               f"{victims} victims, {fires} fires, {blocked} blocked, {collapsed} collapsed nearby.")
 
     return Message(
         sender=agent_id,

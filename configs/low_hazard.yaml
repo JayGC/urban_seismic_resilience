@@ -6,7 +6,7 @@ num_victims: 15
 num_fires: 50
 victim_decay_rate: 1.0
 fire_spread_prob: 0.02
-max_steps: 500
+max_steps: 20
 seed: 42
 
 seismic:
@@ -20,11 +20,11 @@ seismic:
   black_swans: []
 
 agents:
-  num_scouts: 10
+  num_scouts: 5
   num_firefighters: 3
   num_medics: 4
 
 controller_mode: hierarchical
-commander_type: heuristic
+commander_type: llm
 dropout_rate: 0.0
 message_mode: semantic

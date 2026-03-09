@@ -87,7 +87,7 @@ class SimulationController:
             elif 'medic' in aid:
                 self.field_agents[aid] = MedicAgent(aid, pos)
 
-        # Create commander
+        # Create commander (and pass field_agents reference for direct status checks)
         if self.mode == 'hierarchical':
             commander_type = self.config.get('commander_type', 'heuristic')
             if commander_type == 'llm':
@@ -99,10 +99,15 @@ class SimulationController:
                 )
             else:
                 self.commander = HeuristicCommander(agent_ids)
+            # Give commander direct access to field agent objects
+            self.commander.field_agents = self.field_agents
 
     def run_step(self) -> dict:
         """Execute one full step of the simulation."""
         self.step_count += 1
+        print(f"\n{'#'*60}")
+        print(f"### STEP {self.step_count}")
+        print(f"{'#'*60}")
 
         # 1. Commander phase (if hierarchical)
         commander_commands = []
@@ -111,11 +116,16 @@ class SimulationController:
             cmd_obs = self.env.get_commander_observation()
             # Commander receives reports from bus
             reports = self.message_bus.receive_all()
+            if reports:
+                print(f"\n>> [MsgBus] {len(reports)} reports delivered to commander")
             # Commander decides
             commander_commands = self.commander.decide(cmd_obs, reports, self.env)
             # Send commands through bus
-            for cmd in commander_commands:
-                self.message_bus.send(cmd)
+            if commander_commands:
+                print(f">> [MsgBus] {len(commander_commands)} commands sent to agents")
+            if commander_commands:
+                for cmd in commander_commands:
+                    self.message_bus.send(cmd)
 
         # 2. Field agent phase
         actions = {}

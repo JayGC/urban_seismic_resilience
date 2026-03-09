@@ -38,10 +38,14 @@ class FieldAgent:
         self.total_steps += 1
         outgoing = []
 
-        # Check for task assignments
+        # Check for task assignments — only accept if not already busy
         for msg in messages:
             if msg.msg_type == MessageType.TASK_ASSIGNMENT:
-                self._accept_task(msg, env)
+                if self.current_task is not None:
+                    print(f"  XX [{self.agent_id}] Rejected task (busy with '{self.current_task['type']}'): {msg.content}")
+                else:
+                    print(f"  << [{self.agent_id}] Received task from commander: {msg.content}")
+                    self._accept_task(msg, env)
 
         # If we have a task with a target, pathfind toward it
         if self.current_task and 'target_pos' in self.current_task:
@@ -49,17 +53,26 @@ class FieldAgent:
         else:
             action = self._autonomous_action(obs, env)
 
-        # Reporting cadence:
-        # - Scouts report every step (for commander mental-map updates)
-        # - Other agents keep periodic reporting
-        if self.agent_type == 'scout' or self.total_steps % 3 == 0:
+        # Only scouts generate reports (for commander mental-map updates).
+        # Medics and firefighters focus solely on their tasks.
+        if self.agent_type == 'scout':
             report = self._make_report(obs)
             outgoing.append(report)
+            findings = report.metadata.get('findings', {})
+            f_count = len(findings.get('fires', []))
+            v_count = sum(v[2] for v in findings.get('victims', []))
+            b_count = len(findings.get('blocked_roads', []))
+            if f_count or v_count or b_count:
+                print(f"  >> [{self.agent_id}] Report -> commander: "
+                      f"{f_count} fires, {v_count} victims, {b_count} blocked roads")
 
         if action['type'] == 'noop':
             self.idle_steps += 1
         self.actions_taken.append(action['type'])
         self.status = action['type']
+        print(f"  .. [{self.agent_id}] pos={self.position} action={action['type']} "
+              f"task={'active: '+self.current_task['type'] if self.current_task else 'none'} "
+              f"path_len={len(self.path)}")
 
         return action, outgoing
 
@@ -78,11 +91,19 @@ class FieldAgent:
             # Ensure path starts at current position for consistent following.
             if self.path and self.path[0] != self.position:
                 self.path = [self.position] + self.path
+            print(f"  OK [{self.agent_id}] Accepted task '{task_type}' -> {target_pos} "
+                  f"with commander path (len={len(self.path)})")
         elif target_pos:
             # Fallback: local replanning if no path was provided.
             self.path = env.grid.shortest_path(self.position, target_pos) or []
+            if not self.path:
+                # No direct path — find nearest reachable tile to target
+                self.path = self._path_to_nearest_reachable(env, target_pos)
+            print(f"  !! [{self.agent_id}] Accepted task '{task_type}' -> {target_pos} "
+                  f"with LOCAL fallback path (len={len(self.path)})")
         else:
             self.path = []
+            print(f"  XX [{self.agent_id}] Accepted task '{task_type}' but no target/path")
 
     def _follow_task(self, env) -> dict:
         """Follow current task path."""
@@ -93,8 +114,21 @@ class FieldAgent:
             self.path = []
             return action
 
-        # Move along path
+        # Check if next step is passable
         next_pos = self.path[1]
+        if next_pos in env.grid.cells:
+            next_cell = env.grid.cells[next_pos]
+            # If we encounter an unexpected obstacle (blocked road)
+            if next_cell.cell_type.name == 'ROAD' and next_cell.blocked:
+                # Agent cannot see beyond its observation radius — abandon task
+                # so the commander can reassign with updated mental map info.
+                print(f"  XX [{self.agent_id}] Obstacle at {next_pos}, abandoning task")
+                self.current_task = None
+                self.path = []
+                return {'type': 'noop'}
+                return {'type': 'noop'}
+
+        # Move along path
         dx = next_pos[0] - self.position[0]
         dy = next_pos[1] - self.position[1]
         self.path = self.path[1:]
@@ -171,7 +205,10 @@ class FieldAgent:
                 'fires_nearby': len(fires),
                 'blocked_nearby': len(blockages),
                 'collapsed_nearby': len(collapses),
-            }
+            },
+            # Add agent status for availability tracking
+            'status': self.status,
+            'current_task': self.current_task,
         }
         
         return make_report(
@@ -222,6 +259,27 @@ class FieldAgent:
             dy = next_pos[1] - self.position[1]
             return {'type': 'move', 'dx': dx, 'dy': dy}
         return {'type': 'noop'}
+
+    def _path_to_nearest_reachable(self, env, target: Tuple[int, int]) -> List[Tuple[int, int]]:
+        """Find the nearest reachable tile to target and return path to it."""
+        import networkx as nx
+        if self.position not in env.grid.graph:
+            return []
+        try:
+            reachable = nx.node_connected_component(env.grid.graph, self.position)
+            best = min(
+                reachable,
+                key=lambda n: abs(n[0] - target[0]) + abs(n[1] - target[1])
+            )
+            if best == self.position:
+                return []
+            path = env.grid.shortest_path(self.position, best) or []
+            if path:
+                print(f"  ~~ [{self.agent_id}] Fallback: nearest reachable to {target} is {best} "
+                      f"(dist={abs(best[0]-target[0])+abs(best[1]-target[1])})")
+            return path
+        except (nx.NetworkXError, ValueError):
+            return []
 
     def _random_move(self, env) -> dict:
         """Move in a random valid direction."""

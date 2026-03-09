@@ -12,10 +12,10 @@ from env.grid import Victim
 
 try:
     from env.mental_map import MentalMap
-    from env.grid import HazardType
+    from env.grid import HazardType, CellType
 except ImportError:
     from ..env.mental_map import MentalMap
-    from ..env.grid import HazardType
+    from ..env.grid import HazardType, CellType
 
 class CommanderAgent:
     """Base commander interface."""
@@ -28,6 +28,7 @@ class CommanderAgent:
         self.step = 0
         self.assignments: Dict[str, dict] = {}  # agent_id -> current assignment
         self.replan_log: List[dict] = []
+        self.field_agents: Dict[str, Any] = {}  # ref to actual agent objects for direct status checks
     
     def initialize_mental_map(self, grid_width: int, grid_height: int, grid, seed: int = 42):
         """Initialize mental map with same structure as actual grid."""
@@ -50,17 +51,25 @@ class CommanderAgent:
                 if self.mental_map:
                     # Extract findings from message metadata
                     findings = msg.metadata.get('findings', {})
-                    # agent_pos = msg.metadata.get('position')
-                    # local_obs = msg.metadata.get('observation')
-                    # obs_radius = msg.metadata.get('observation_radius', 1)
+                    agent_pos = msg.metadata.get('position')
+                    local_obs = msg.metadata.get('observation')
+                    obs_radius = msg.metadata.get('observation_radius', 1)
                     current_step = msg.step
                     
-                    # First, update from full local observation
-                    # if agent_pos and local_obs:
-                    # if agent_pos:
-                    #     self.mental_map.update_from_observation(
-                    #         agent_pos, local_obs, obs_radius, current_step
-                    #     )
+                    f_count = len(findings.get('fires', []))
+                    v_count = len(findings.get('victims', []))
+                    b_count = len(findings.get('blocked_roads', []))
+                    c_count = len(findings.get('collapsed_buildings', []))
+                    if findings:
+                        print(f"[Commander] Report from {msg.sender}: "
+                              f"{f_count} fires, {v_count} victim-cells, "
+                              f"{b_count} blocked, {c_count} collapsed")
+                    
+                    # First, update from full local observation (for scouts)
+                    if agent_pos and local_obs:
+                        self.mental_map.update_from_observation(
+                            agent_pos, local_obs, obs_radius, current_step
+                        )
                     
                     # Then, process exact coordinate findings
                     # Update fires with exact coordinates
@@ -96,35 +105,33 @@ class CommanderAgent:
                             cell = self.mental_map.cells[pos]
                             b_id = cell.building_id
                             if b_id is not None:
-                                # self.mental_map.update_building_collapse(
-                                #     cell.building_id, True, current_step
-                                # )
+                                # Mark all cells of this building as having debris
                                 for b_pos, b_cell in self.mental_map.cells.items():
                                     if b_cell.building_id == b_id:
                                         b_cell.hazard = HazardType.DEBRIS
                                         b_cell.explored = True
                                         b_cell.last_updated_step = current_step
-                            # cell.explored = True
-                            # cell.last_updated_step = current_step
                     
                     # Update victim locations with exact coordinates
                     for victim_x, victim_y, count in findings.get('victims', []):
                         pos = (victim_x, victim_y)
-                        cell = self.mental_map.cells[pos]
-                        
-                        # find the building of this cell - if any cell of the building has fire, then add
-                        if cell.building_id is not None:
-                            b_id = cell.building_id
-                            building_cells = [c for c in self.mental_map.cells.values() if c.building_id == b_id]
-                            if any(c.hazard == HazardType.FIRE for c in building_cells):
-                                cell.victims.extend([Victim(victim_id=-1, position=pos) for _ in range(count)])
-                            elif cell.hazard == HazardType.DEBRIS:
-                                cell.victims.extend([Victim(victim_id=-1, position=pos) for _ in range(count)])
-                        # if pos in self.mental_map.cells:
-                        #     cell = self.mental_map.cells[pos]
-                        #     self.mental_map.update_victim_info(
-                        #         pos, count, current_step
-                        #     )
+                        if pos in self.mental_map.cells:
+                            cell = self.mental_map.cells[pos]
+                            
+                            # Check if victims need rescue based on hazards
+                            # If building has fire or debris, add victims to mental map
+                            if cell.building_id is not None:
+                                b_id = cell.building_id
+                                building_cells = [c for c in self.mental_map.cells.values() if c.building_id == b_id]
+                                if any(c.hazard == HazardType.FIRE for c in building_cells):
+                                    cell.victims.extend([Victim(victim_id=-1, position=pos) for _ in range(count)])
+                                elif cell.hazard == HazardType.DEBRIS:
+                                    cell.victims.extend([Victim(victim_id=-1, position=pos) for _ in range(count)])
+                            else:
+                                # Victims in road cells (unusual but possible)
+                                if cell.hazard in (HazardType.FIRE, HazardType.DEBRIS):
+                                    cell.victims.extend([Victim(victim_id=-1, position=pos) for _ in range(count)])
+                            
                             cell.explored = True
                             cell.last_updated_step = current_step
 
@@ -139,6 +146,184 @@ class CommanderAgent:
             if t in agent_id.lower():
                 return t
         return 'unknown'
+    
+    def _get_free_agents(self) -> List[str]:
+        """Return list of agents that are currently available (not busy with tasks).
+        
+        For medics/firefighters: directly inspect agent.current_task (no reports needed).
+        For scouts: use report-based tracking (they send reports every step).
+        """
+        free_agents = []
+        for agent_id in self.agent_ids:
+            agent_obj = self.field_agents.get(agent_id)
+
+            # --- Non-scout agents: direct object inspection ----------
+            if agent_obj and agent_obj.agent_type != 'scout':
+                if agent_obj.current_task is None:
+                    # Clean up stale assignment ledger entry
+                    self.assignments.pop(agent_id, None)
+                    free_agents.append(agent_id)
+                continue
+
+            # --- Scout agents: report-based tracking -----------------
+            if agent_id in self.assignments:
+                assigned_step = self.assignments[agent_id].get('assigned_step', -1)
+                report = self.agent_reports.get(agent_id, {})
+                report_step = report.get('step', -1)
+                metadata = report.get('metadata', {})
+
+                # If the scout hasn't reported since being assigned, assume busy
+                if report_step < assigned_step:
+                    continue
+
+                # Scout reported after assignment — check if it finished
+                reported_task = metadata.get('current_task')
+                if reported_task is not None:
+                    continue
+                else:
+                    del self.assignments[agent_id]
+                    free_agents.append(agent_id)
+                    continue
+
+            # No active assignment — check latest report
+            report = self.agent_reports.get(agent_id, {})
+            metadata = report.get('metadata', {})
+            current_task = metadata.get('current_task')
+            if current_task is not None:
+                continue
+
+            free_agents.append(agent_id)
+        return free_agents  # May be empty — that is intentional
+    
+    def _zone_data_from_mental_map(self, zone_size: int = 10) -> List[dict]:
+        """Build zone summaries from mental map instead of ground truth."""
+        if not self.mental_map:
+            return []
+        
+        zones = []
+        for y in range(zone_size//2, self.mental_map.height - zone_size//2, zone_size):
+            for x in range(zone_size//2, self.mental_map.width - zone_size//2, zone_size):
+                zone_summary = self.mental_map.get_zone_summary(x, y, zone_size)
+                # Rename keys for backward compatibility
+                zone_summary['victims'] = zone_summary['victims_known']
+                zone_summary['fires'] = zone_summary['fires_known']
+                zones.append(zone_summary)
+        return zones
+    
+    def _compute_path_on_mental_map(self, start: Tuple[int, int], goal: Tuple[int, int]) -> Optional[List[Tuple[int, int]]]:
+        """Compute path using A* on mental map. Treats unknown cells with higher cost."""
+        if not self.mental_map:
+            return None
+        
+        import networkx as nx
+        
+        # Build weighted graph from mental map
+        # Known passable cells: cost 1
+        # Unknown cells: cost 2 (exploration penalty)
+        # Blocked cells: not traversable (not in graph)
+        weighted_graph = nx.Graph()
+        
+        for pos, cell in self.mental_map.cells.items():
+            # Add node if it's potentially passable
+            if cell.cell_type == CellType.ROAD:
+                if cell.explored and cell.blocked:
+                    continue  # Known blocked - skip
+                # Add node with position
+                weighted_graph.add_node(pos)
+        
+        # Add edges with costs
+        for pos in weighted_graph.nodes():
+            cell = self.mental_map.cells[pos]
+            # Cost for this cell: 1 if explored, 2 if unexplored
+            cost_here = 1.0 if cell.explored else 2.0
+            
+            for dx, dy in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+                neighbor = (pos[0] + dx, pos[1] + dy)
+                if neighbor in weighted_graph.nodes():
+                    neighbor_cell = self.mental_map.cells[neighbor]
+                    cost_neighbor = 1.0 if neighbor_cell.explored else 2.0
+                    # Edge cost is average of both cells
+                    edge_cost = (cost_here + cost_neighbor) / 2.0
+                    weighted_graph.add_edge(pos, neighbor, weight=edge_cost)
+        
+        if start not in weighted_graph or goal not in weighted_graph:
+            return None
+        
+        try:
+            # A* with weighted edges
+            path = nx.astar_path(
+                weighted_graph, start, goal,
+                heuristic=lambda a, b: abs(a[0]-b[0]) + abs(a[1]-b[1]),
+                weight='weight'
+            )
+            return path
+        except nx.NetworkXNoPath:
+            pass
+
+        # Fallback to BFS on unweighted graph
+        try:
+            return nx.shortest_path(self.mental_map.graph, start, goal)
+        except nx.NetworkXNoPath:
+            pass
+
+        # Last resort: find the nearest reachable tile to the goal
+        try:
+            reachable = nx.node_connected_component(weighted_graph, start)
+            best_node = min(
+                reachable,
+                key=lambda n: abs(n[0] - goal[0]) + abs(n[1] - goal[1])
+            )
+            if best_node != start:
+                path = nx.astar_path(
+                    weighted_graph, start, best_node,
+                    heuristic=lambda a, b: abs(a[0]-b[0]) + abs(a[1]-b[1]),
+                    weight='weight'
+                )
+                print(f"[Commander] Fallback: pathing to nearest reachable tile {best_node} "
+                      f"(goal was {goal}, dist={abs(best_node[0]-goal[0])+abs(best_node[1]-goal[1])})")
+                return path
+        except (nx.NetworkXError, ValueError):
+            pass
+
+        return None
+    
+    def _attach_paths_to_commands(self, commands: List[Message], agent_positions: Dict[str, Tuple[int, int]]) -> List[Message]:
+        """Compute paths for each command and attach to metadata."""
+        for cmd in commands:
+            agent_id = cmd.receiver
+            target_pos = cmd.metadata.get('target_pos')
+            if agent_id in agent_positions and target_pos:
+                start_pos = agent_positions[agent_id]
+                path = self._compute_path_on_mental_map(start_pos, target_pos)
+                if path:
+                    cmd.metadata['path'] = path
+                    # Log path computation
+                    print(f"[Commander] Computed path for {agent_id}: length {len(path)}")
+                else:
+                    print(f"[Commander] Warning: No path found for {agent_id} from {start_pos} to {target_pos}")
+        return commands
+    
+    def _find_nearest_agent(self, target_pos: Tuple[int, int], 
+                           agent_ids: List[str], 
+                           agent_positions: Dict[str, Tuple[int, int]]) -> Optional[str]:
+        """Find nearest agent to target position based on mental map distance."""
+        if not agent_ids or not self.mental_map:
+            return None
+        
+        nearest = None
+        min_dist = float('inf')
+        
+        for agent_id in agent_ids:
+            if agent_id not in agent_positions:
+                continue
+            pos = agent_positions[agent_id]
+            # Use Manhattan distance as heuristic
+            dist = abs(pos[0] - target_pos[0]) + abs(pos[1] - target_pos[1])
+            if dist < min_dist:
+                min_dist = dist
+                nearest = agent_id
+        
+        return nearest
 
 
 class HeuristicCommander(CommanderAgent):
@@ -152,56 +337,102 @@ class HeuristicCommander(CommanderAgent):
     def decide(self, observation: dict, messages: List[Message],
                env=None) -> List[Message]:
         self.step = observation.get('step', 0)
-        self.zone_data = observation.get('zones', [])
+        # Use mental map zone data instead of ground truth
+        if self.mental_map:
+            self.zone_data = self._zone_data_from_mental_map(zone_size=10)
+        else:
+            self.zone_data = observation.get('zones', [])
         self.update_mental_map(messages)
 
+        if self.mental_map:
+            explored_pct = self.mental_map.get_explored_fraction() * 100
+            known_victims = self.mental_map.get_all_known_victims()
+            total_v = sum(v[2] for v in known_victims)
+            print(f"\n{'='*60}")
+            print(f"🗺️  [Commander] Step {self.step} | Mental Map: {explored_pct:.1f}% explored | "
+                  f"{total_v} victims known | {len(self.zone_data)} zones")
+            for z in self.zone_data:
+                v = z.get('victims_known', z.get('victims', 0))
+                f = z.get('fires_known', z.get('fires', 0))
+                e = z.get('exploration', 0)
+                if v > 0 or f > 0:
+                    print(f"   Zone ({z['zone'][0]:2d},{z['zone'][1]:2d}): "
+                          f"victims={v}, fires={f}, explored={e:.0%}")
+
         commands = []
+        agent_positions = observation.get('agent_positions', {})
 
-        # Categorize agents
-        scouts = [a for a in self.agent_ids if 'scout' in a.lower()]
-        firefighters = [a for a in self.agent_ids if 'firefighter' in a.lower()]
-        medics = [a for a in self.agent_ids if 'medic' in a.lower()]
+        # Get free agents only
+        free_agents = self._get_free_agents()
+        print(f"  👥 Free agents: {free_agents}")
+        scouts = [a for a in free_agents if 'scout' in a.lower()]
+        firefighters = [a for a in free_agents if 'firefighter' in a.lower()]
+        medics = [a for a in free_agents if 'medic' in a.lower()]
 
-        # Sort zones by priority
-        fire_zones = sorted(self.zone_data, key=lambda z: z.get('fires', 0), reverse=True)
-        victim_zones = sorted(self.zone_data, key=lambda z: z.get('victims_alive', 0), reverse=True)
-        unexplored_zones = self.zone_data  # All zones are candidates for exploration
+        # Priority: zones with highest victim/fire counts
+        unexplored_zones = sorted(self.zone_data, key=lambda z: z.get('exploration', 0))  # Least explored first
 
-        # Assign firefighters to fire zones
-        for i, agent_id in enumerate(firefighters):
-            if i < len(fire_zones) and fire_zones[i].get('fires', 0) > 0:
-                zone = fire_zones[i]
-                target = (zone['zone'][0] + 5, zone['zone'][1] + 5)  # Zone center
+        # 1. Assign medics ONLY to exact known victim locations in the mental map
+        #    (Do NOT dispatch medics based on zone-level estimates.)
+        if self.mental_map:
+            known_victims = self.mental_map.get_all_known_victims()
+            # Sort by victim count descending so highest-need cells are served first
+            known_victims.sort(key=lambda v: v[2], reverse=True)
+            for victim_x, victim_y, count in known_victims:
+                if not medics:
+                    break
+                nearest_medic = self._find_nearest_agent((victim_x, victim_y), medics, agent_positions)
+                if nearest_medic:
+                    cmd = make_task_assignment(
+                        nearest_medic, 'rescue_victims', (victim_x, victim_y), self.step,
+                        f"{count} victims at exact location ({victim_x},{victim_y})."
+                    )
+                    commands.append(cmd)
+                    self.assignments[nearest_medic] = {'task': 'rescue', 'target': (victim_x, victim_y), 'assigned_step': self.step}
+                    medics.remove(nearest_medic)
+
+        # 2. Assign firefighters ONLY to exact known fire locations in the mental map
+        #    (Do NOT dispatch firefighters based on zone-level estimates.)
+        if self.mental_map:
+            known_fires = self.mental_map.get_all_known_fires()
+            # Sort by intensity descending so worst fires are handled first
+            known_fires.sort(key=lambda f: f[2], reverse=True)
+            for fire_x, fire_y, intensity in known_fires:
+                if not firefighters:
+                    break
+                nearest_ff = self._find_nearest_agent((fire_x, fire_y), firefighters, agent_positions)
+                if nearest_ff:
+                    cmd = make_task_assignment(
+                        nearest_ff, 'extinguish_fire', (fire_x, fire_y), self.step,
+                        f"Fire (intensity={intensity:.1f}) at exact location ({fire_x},{fire_y})."
+                    )
+                    commands.append(cmd)
+                    self.assignments[nearest_ff] = {'task': 'extinguish', 'target': (fire_x, fire_y), 'assigned_step': self.step}
+                    firefighters.remove(nearest_ff)
+
+        # 3. Assign scouts to unexplored zones
+        for zone in unexplored_zones:
+            if not scouts:
+                break
+            target = (zone['zone'][0] + 5, zone['zone'][1] + 5)
+            nearest_scout = self._find_nearest_agent(target, scouts, agent_positions)
+            if nearest_scout:
                 cmd = make_task_assignment(
-                    agent_id, 'extinguish_fire', target, self.step,
-                    f"Zone has {zone['fires']} active fires."
+                    nearest_scout, 'search_zone', target, self.step,
+                    f"Explore zone (currently {zone.get('exploration', 0):.1%} explored)."
                 )
                 commands.append(cmd)
-                self.assignments[agent_id] = {'task': 'extinguish', 'zone': zone['zone']}
+                self.assignments[nearest_scout] = {'task': 'scout', 'zone': zone['zone'], 'assigned_step': self.step}
+                scouts.remove(nearest_scout)
 
-        # Assign medics to victim zones
-        for i, agent_id in enumerate(medics):
-            if i < len(victim_zones) and victim_zones[i].get('victims_alive', 0) > 0:
-                zone = victim_zones[i]
-                target = (zone['zone'][0] + 5, zone['zone'][1] + 5)
-                cmd = make_task_assignment(
-                    agent_id, 'rescue_victims', target, self.step,
-                    f"Zone has {zone['victims_alive']} victims alive."
-                )
-                commands.append(cmd)
-                self.assignments[agent_id] = {'task': 'rescue', 'zone': zone['zone']}
+        # Attach paths to all commands
+        commands = self._attach_paths_to_commands(commands, agent_positions)
 
-        # Assign scouts to explore
-        for i, agent_id in enumerate(scouts):
-            if i < len(unexplored_zones):
-                zone = unexplored_zones[i]
-                target = (zone['zone'][0] + 5, zone['zone'][1] + 5)
-                cmd = make_task_assignment(
-                    agent_id, 'search_zone', target, self.step,
-                    f"Explore this zone."
-                )
-                commands.append(cmd)
-                self.assignments[agent_id] = {'task': 'scout', 'zone': zone['zone']}
+        for cmd in commands:
+            path_len = len(cmd.metadata.get('path', []))
+            print(f"[Commander] → {cmd.receiver}: {cmd.metadata.get('task_type')} "
+                  f"at {cmd.metadata.get('target_pos')} (path={path_len} steps)")
+        print(f"{'='*60}\n")
 
         return commands
 
@@ -234,12 +465,14 @@ class LLMCommander(CommanderAgent):
 
     def _build_prompt(self, observation: dict, messages: List[Message]) -> str:
         """Build the LLM prompt from observation and messages."""
+        # Use ground-truth zone summaries (noisy but from the actual environment)
         zones_summary = ""
         for z in observation.get('zones', []):
             zones_summary += (
                 f"  Zone ({z['zone'][0]},{z['zone'][1]}): "
-                f"victims={z['victims']}, fires={z['fires']}, "
-                f"blocked={z['blocked_roads']}, collapsed={z['collapsed_buildings']}\n"
+                f"victims={z.get('victims', z.get('victims_alive', 0))}, "
+                f"fires={z.get('fires', 0)}, "
+                f"blocked={z.get('blocked_roads', 0)}, collapsed={z.get('collapsed_buildings', 0)}\n"
             )
 
         agent_reports = ""
@@ -247,31 +480,35 @@ class LLMCommander(CommanderAgent):
             agent_reports += f"  {msg.to_semantic()}\n"
 
         agent_positions = observation.get('agent_positions', {})
+        free_agents = self._get_free_agents()
+        if not free_agents:
+            print("No free agents available for new tasks. Skipping LLM prompt.")
+            return
         agents_info = ""
-        for aid, pos in agent_positions.items():
-            atype = self._get_agent_type(aid)
-            agents_info += f"  {aid} ({atype}) at ({pos[0]},{pos[1]})\n"
+        for aid in free_agents:
+            if aid in agent_positions:
+                pos = agent_positions[aid]
+                atype = self._get_agent_type(aid)
+                agents_info += f"  {aid} ({atype}) at ({pos[0]},{pos[1]}) - AVAILABLE\n"
 
         prompt = f"""You are the Commander of an urban disaster response operation after an earthquake.
 Your role is to assign tasks to field agents to maximize civilian survival.
 
 CURRENT STEP: {observation.get('step', 0)}
 
-ZONE SUMMARIES:
+ZONE SUMMARIES (noisy estimates from environment):
 {zones_summary}
 
-AGENT POSITIONS:
-{agents_info}
+FREE AGENTS AVAILABLE FOR NEW TASKS:
+{agents_info if agents_info else "  No free agents available."}
 
-AGENT REPORTS:
+RECENT AGENT REPORTS:
 {agent_reports if agent_reports else "  No reports this step."}
 
-AVAILABLE AGENTS: {', '.join(self.agent_ids)}
-
 AGENT TYPES AND CAPABILITIES:
-- scout_*: Can scan/explore areas, fast movement
+- scout_*: Can scan/explore areas, fast movement, observation radius=2
 - firefighter_*: Can extinguish fires
-- medic_*: Can rescue and treat victims
+- medic_*: Can rescue and treat victims, clear debris
 
 Respond with a JSON array of task assignments. Each assignment:
 {{
@@ -283,10 +520,12 @@ Respond with a JSON array of task assignments. Each assignment:
 }}
 
 PRIORITIES:
-1. Save living victims (assign medics to zones with most alive victims)
-2. Extinguish fires near victims (assign firefighters)
-3. Explore unknown areas (assign scouts)
-4. Consider blocked roads and plan routes around them
+1. Save living victims (assign medics to known victim locations)
+2. Extinguish fires near victims/buildings (assign firefighters)
+3. Explore unexplored zones with high uncertainty (assign scouts)
+4. Consider blocked roads - paths will be planned around them
+
+IMPORTANT: Only assign FREE agents listed above. Busy agents cannot accept new tasks.
 
 Respond ONLY with the JSON array, no other text."""
 
@@ -296,14 +535,44 @@ Respond ONLY with the JSON array, no other text."""
                env=None) -> List[Message]:
         self.step = observation.get('step', 0)
         self.zone_data = observation.get('zones', [])
+        
         self.update_mental_map(messages)
+        agent_positions = observation.get('agent_positions', {})
 
+        # Pass the original observation (ground-truth zones) to the prompt
         prompt = self._build_prompt(observation, messages)
 
+        print(f"\n{'='*60}")
+        print(f"[LLM Commander] Step {self.step} | Prompt sent to LLM:")
+        print(f"{'-'*60}")
+        print(prompt)
+        print(f"{'-'*60}")
+
         # try:
+        if not prompt:
+            print("[LLM Commander] No prompt generated (no free agents). Skipping LLM call.")
+            return []
+
         assignments = self._call_llm(prompt)
+
+        print(f"[LLM Commander] Raw LLM response:")
+        print(f"{'-'*60}")
+        print(assignments)
+        print(f"{'-'*60}")
+
         commands = self._parse_assignments(assignments)
-        print(f"LLM Commander assignments at step {self.step}: {commands}")
+        
+        # Attach paths to all commands
+        if commands:
+            commands = self._attach_paths_to_commands(commands, agent_positions)
+        
+        print(f"[LLM Commander] Step {self.step} -> {len(commands)} task(s) assigned")
+        for cmd in commands:
+            path_len = len(cmd.metadata.get('path', []))
+            print(f"  >> {cmd.receiver}: {cmd.metadata.get('task_type')} "
+                  f"at {cmd.metadata.get('target_pos')} (path={path_len} steps)")
+        print(f"{'='*60}\n")
+
         if commands:
             return commands
         # except Exception as e:
@@ -437,11 +706,14 @@ Respond ONLY with the JSON array, no other text."""
         except json.JSONDecodeError:
             return []
 
+        # Get free agents to filter assignments
+        free_agents = self._get_free_agents()
+        
         commands = []
         for a in assignments:
             agent_id = a.get('agent_id', '')
-            if agent_id not in self.agent_ids:
-                continue
+            if agent_id not in self.agent_ids or agent_id not in free_agents:
+                continue  # Skip if not valid or not free
             task_type = a.get('task_type', 'move_to')
             tx = a.get('target_x', 25)
             ty = a.get('target_y', 25)
@@ -452,7 +724,7 @@ Respond ONLY with the JSON array, no other text."""
             )
             commands.append(cmd)
             self.assignments[agent_id] = {
-                'task': task_type, 'target': (tx, ty), 'reason': reason
+                'task': task_type, 'target': (tx, ty), 'reason': reason, 'assigned_step': self.step
             }
 
         return commands
