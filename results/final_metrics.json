@@ -1,0 +1,53 @@
+{
+  "survivor_rate": {
+    "total_victims": 31,
+    "rescued": 3,
+    "dead": 0,
+    "alive_unrescued": 28,
+    "survivor_rate": 0.0967741935483871
+  },
+  "mental_map_fidelity": {
+    "total_cells": 2500,
+    "cells_explored": 277,
+    "explored_fraction": 0.1108,
+    "cells_fully_correct": 270,
+    "cell_accuracy": 0.108,
+    "gt_fires": 32,
+    "fires_found": 0,
+    "fires_missed": 32,
+    "fire_recall": 0.0,
+    "gt_debris": 191,
+    "debris_found": 30,
+    "debris_missed": 161,
+    "debris_recall": 0.1571,
+    "gt_blocked_roads": 78,
+    "blocked_found": 4,
+    "blocked_missed": 74,
+    "blockage_recall": 0.0513,
+    "gt_victim_cells": 44,
+    "victim_cells_found": 0,
+    "victim_cells_missed": 44,
+    "victim_cell_recall": 0.0
+  },
+  "commander_llm_stats": {
+    "num_llm_calls": 1,
+    "avg_latency_seconds": 74.896,
+    "avg_input_tokens": 1572.0,
+    "avg_output_tokens": 5340.0,
+    "avg_total_tokens": 6912.0,
+    "total_input_tokens": 1572,
+    "total_output_tokens": 5340,
+    "total_tokens": 6912,
+    "per_call_log": [
+      {
+        "step": 0,
+        "latency_seconds": 74.896,
+        "input_tokens": 1572,
+        "output_tokens": 5340,
+        "total_tokens": 6912
+      }
+    ]
+  },
+  "simulation_steps": 2,
+  "max_steps": 2
+}

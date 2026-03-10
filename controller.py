@@ -11,6 +11,7 @@ from env.environment import UrbanDisasterEnv
 from agents.messages import MessageBus, Message
 from agents.field_agents import FieldAgent, ScoutAgent, FirefighterAgent, MedicAgent
 from agents.commander import CommanderAgent, HeuristicCommander, LLMCommander
+from metrics import compute_final_metrics
 
 
 class SimulationController:
@@ -190,6 +191,9 @@ class SimulationController:
             print(f"Dead: {final['dead']}")
             print(f"Message stats: {self.message_bus.get_stats()}")
 
+        # Compute and save end-of-simulation metrics to JSON
+        self.final_metrics = compute_final_metrics(self)
+
         return self.trajectory
 
     def save_trajectory(self, path: str):
@@ -203,6 +207,10 @@ class SimulationController:
         if self.trajectory:
             return self.trajectory[-1]['metrics']
         return {}
+
+    def get_evaluation_metrics(self, output_path: str = "results/final_metrics.json") -> dict:
+        """Compute the three evaluation metrics and write to JSON."""
+        return compute_final_metrics(self, output_path=output_path)
 
     def get_agent_stats(self) -> dict:
         """Get per-agent statistics."""

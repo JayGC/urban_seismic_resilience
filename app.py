@@ -94,6 +94,10 @@ def step():
             buf.seek(0)
             mental_map_img_base64 = base64.b64encode(buf.read()).decode('utf-8')
 
+    # 6. Auto-dump final evaluation metrics when simulation ends
+    if done:
+        global_ctrl.get_evaluation_metrics()
+
     return jsonify({
         'done': done,
         'metrics': metrics,
@@ -102,6 +106,15 @@ def step():
         'agents': {'scouts': scouts, 'firefighters': firefighters, 'medics': medics},
         'logs': logs
     })
+
+
+@app.route('/metrics', methods=['GET'])
+def metrics():
+    global global_ctrl
+    if global_ctrl is None:
+        return jsonify({'error': 'Not initialized'}), 400
+    result = global_ctrl.get_evaluation_metrics()
+    return jsonify(result)
 
 
 if __name__ == '__main__':

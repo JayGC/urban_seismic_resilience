@@ -6,7 +6,7 @@ num_victims: 50
 num_fires: 30
 victim_decay_rate: 1.0
 fire_spread_prob: 0.02
-max_steps: 50
+max_steps: 2
 seed: 42
 
 seismic:
