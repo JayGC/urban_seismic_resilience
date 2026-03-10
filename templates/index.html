@@ -183,6 +183,18 @@
         </div>
 
         <div class="panel">
+            <h2>Population</h2>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <div class="victim-card" style="flex: 1;">
+                    <div style="font-size:11px; color:#94a3b8;">TOTAL PEOPLE</div>
+                    <div class="num" id="v-total" style="color: var(--accent-blue);">0</div>
+                </div>
+                <div class="victim-card" style="flex: 1;">
+                    <div style="font-size:11px; color:#94a3b8;">SAFE</div>
+                    <div class="num" id="v-safe" style="color: #cbd5e1;">0</div>
+                </div>
+            </div>
+
             <h2>Victim Status</h2>
             <div style="display: flex; gap: 10px; margin-bottom: 20px;">
                 <div class="victim-card" style="flex: 1;">
@@ -190,11 +202,11 @@
                     <div class="num v-rescued" id="v-rescued">0</div>
                 </div>
                 <div class="victim-card" style="flex: 1;">
-                    <div style="font-size:11px; color:#94a3b8;">ALIVE (TRAPPED)</div>
+                    <div style="font-size:11px; color:#94a3b8;">TRAPPED</div>
                     <div class="num v-alive" id="v-alive">0</div>
                 </div>
                 <div class="victim-card" style="flex: 1;">
-                    <div style="font-size:11px; color:#94a3b8;">CASUALTIES</div>
+                    <div style="font-size:11px; color:#94a3b8;">DEAD</div>
                     <div class="num v-dead" id="v-dead">0</div>
                 </div>
             </div>
@@ -279,7 +291,9 @@
                 document.getElementById('stat-collapses').innerText = m.collapsed_buildings;
                 document.getElementById('stat-roads').innerText = m.blocked_roads;
 
-                // Victims
+                // Population & Victims
+                document.getElementById('v-total').innerText = m.total_people;
+                document.getElementById('v-safe').innerText = m.safe_people;
                 document.getElementById('v-rescued').innerText = m.rescued;
                 document.getElementById('v-alive').innerText = m.alive_unrescued;
                 document.getElementById('v-dead').innerText = m.dead;
@@ -340,7 +354,9 @@
                 document.getElementById('stat-collapses').innerText = m.collapsed_buildings;
                 document.getElementById('stat-roads').innerText = m.blocked_roads;
 
-                // Victims
+                // Population & Victims
+                document.getElementById('v-total').innerText = m.total_people;
+                document.getElementById('v-safe').innerText = m.safe_people;
                 document.getElementById('v-rescued').innerText = m.rescued;
                 document.getElementById('v-alive').innerText = m.alive_unrescued;
                 document.getElementById('v-dead').innerText = m.dead;

@@ -352,11 +352,27 @@ class UrbanDisasterEnv:
 
     def get_metrics(self) -> dict:
         """Compute current metrics."""
-        victims = self.grid.get_all_victims()
-        total = len(victims)
-        rescued = sum(1 for v in victims if v.rescued)
-        alive = sum(1 for v in victims if v.health > 0 and not v.rescued)
-        dead = sum(1 for v in victims if v.health <= 0 and not v.rescued)
+        total_people = 0
+        total_victims = 0
+        rescued = 0
+        alive_trapped = 0
+        dead = 0
+        safe_people = 0
+
+        for pos, cell in self.grid.cells.items():
+            for v in cell.victims:
+                total_people += 1
+                if self.grid.is_cell_in_danger(pos):
+                    # This person is a victim (in a hazardous building)
+                    total_victims += 1
+                    if v.rescued:
+                        rescued += 1
+                    elif v.health > 0:
+                        alive_trapped += 1
+                    else:
+                        dead += 1
+                else:
+                    safe_people += 1
 
         fires = sum(1 for c in self.grid.cells.values() if c.hazard == HazardType.FIRE)
         blocked = sum(1 for c in self.grid.cells.values()
@@ -365,11 +381,13 @@ class UrbanDisasterEnv:
 
         return {
             'step': self.step_count,
-            'total_victims': total,
+            'total_people': total_people,
+            'safe_people': safe_people,
+            'total_victims': total_victims,
             'rescued': rescued,
-            'alive_unrescued': alive,
+            'alive_unrescued': alive_trapped,
             'dead': dead,
-            'survival_rate': rescued / max(1, total),
+            'survival_rate': rescued / max(1, total_victims),
             'active_fires': fires,
             'blocked_roads': blocked,
             'collapsed_buildings': collapsed,

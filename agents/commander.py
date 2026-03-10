@@ -112,6 +112,10 @@ class CommanderAgent:
                                         b_cell.explored = True
                                         b_cell.last_updated_step = current_step
                     
+                    # If this message is a rescue confirmation, the agent has
+                    # confirmed danger — trust victim findings unconditionally.
+                    is_rescue_report = msg.metadata.get('rescued_at') is not None
+
                     # Update victim locations with exact coordinates
                     for victim_x, victim_y, count in findings.get('victims', []):
                         pos = (victim_x, victim_y)
@@ -119,17 +123,18 @@ class CommanderAgent:
                             cell = self.mental_map.cells[pos]
 
                             # Determine if this cell's building is in danger
-                            in_danger = False
-                            if cell.building_id is not None:
-                                b_id = cell.building_id
-                                building_cells = [c for c in self.mental_map.cells.values() if c.building_id == b_id]
-                                if any(c.hazard == HazardType.FIRE for c in building_cells):
-                                    in_danger = True
-                                elif cell.hazard == HazardType.DEBRIS:
-                                    in_danger = True
-                            else:
-                                if cell.hazard in (HazardType.FIRE, HazardType.DEBRIS):
-                                    in_danger = True
+                            in_danger = is_rescue_report  # trust rescue reports
+                            if not in_danger:
+                                if cell.building_id is not None:
+                                    b_id = cell.building_id
+                                    building_cells = [c for c in self.mental_map.cells.values() if c.building_id == b_id]
+                                    if any(c.hazard == HazardType.FIRE for c in building_cells):
+                                        in_danger = True
+                                    elif cell.hazard == HazardType.DEBRIS:
+                                        in_danger = True
+                                else:
+                                    if cell.hazard in (HazardType.FIRE, HazardType.DEBRIS):
+                                        in_danger = True
 
                             if in_danger:
                                 # Keep rescued victims, replace unrescued with fresh count
@@ -141,7 +146,7 @@ class CommanderAgent:
                             cell.explored = True
                             cell.last_updated_step = current_step
 
-                    # Process rescue confirmations from medics/firefighters
+                    # Process rescue confirmations — mark victims as rescued
                     rescued_at = msg.metadata.get('rescued_at')
                     if rescued_at:
                         rx, ry = rescued_at
@@ -520,6 +525,7 @@ class LLMCommander(CommanderAgent):
         # self.fallback = HeuristicCommander(agent_ids)
         self.llm_call_count = 0
         self.total_tokens = 0
+        self.call_log: List[dict] = []  # per-call latency and token tracking
 
     def _build_prompt(self, observation: dict, messages: List[Message]) -> str:
         """Build the LLM prompt from observation and messages."""
@@ -703,6 +709,7 @@ Respond ONLY with the JSON array, no other text."""
     #         return self._simulated_llm_response()
     def _call_llm(self, prompt: str) -> str:
         """Call Triton API via OpenAI client."""
+        import time
         from openai import OpenAI
 
         self.llm_call_count += 1
@@ -713,6 +720,7 @@ Respond ONLY with the JSON array, no other text."""
             base_url="https://tritonai-api.ucsd.edu",
         )
 
+        start_time = time.time()
         response = client.chat.completions.create(
             model=self.model,
             messages=[
@@ -722,9 +730,23 @@ Respond ONLY with the JSON array, no other text."""
             max_tokens=8192,
             temperature=0.3,
         )
+        latency = time.time() - start_time
 
-        self.total_tokens += response.usage.total_tokens if response.usage else 0
-        return response.choices[0].message.content  
+        usage = response.usage
+        input_tokens = usage.prompt_tokens if usage else 0
+        output_tokens = usage.completion_tokens if usage else 0
+        total = usage.total_tokens if usage else 0
+        self.total_tokens += total
+
+        self.call_log.append({
+            'step': self.step,
+            'latency_seconds': round(latency, 3),
+            'input_tokens': input_tokens,
+            'output_tokens': output_tokens,
+            'total_tokens': total,
+        })
+
+        return response.choices[0].message.content
 
     def _simulated_llm_response(self) -> str:
         """Generate a simulated LLM response based on heuristic logic (for testing without API)."""
@@ -887,5 +909,6 @@ Respond ONLY with the JSON array, no other text."""
         return {
             'llm_calls': self.llm_call_count,
             'total_tokens': self.total_tokens,
+            'call_log': self.call_log,
             'current_assignments': dict(self.assignments),
         }
