@@ -143,13 +143,14 @@ class UrbanDisasterEnv:
         # 3. Fire spread
         self._spread_fires()
 
-        # 4. Victim health decay
+        # 4. Victim health decay — only for people in hazardous buildings
+        #    A person is a victim if ANY cell of their building has fire/debris/collapsed
         decay_rate = self.config.get('victim_decay_rate', 1.5)
-        for cell in self.grid.cells.values():
-            for v in cell.victims:
-                # Faster decay if there's fire
-                rate = decay_rate * (2.0 if cell.hazard == HazardType.FIRE else 1.0)
-                v.tick(rate)
+        for pos, cell in self.grid.cells.items():
+            if cell.victims and self.grid.is_cell_in_danger(pos):
+                for v in cell.victims:
+                    rate = decay_rate * (2.0 if cell.hazard == HazardType.FIRE else 1.0)
+                    v.tick(rate)
 
         # 5. Check termination
         if self.step_count >= self.max_steps:
@@ -202,13 +203,14 @@ class UrbanDisasterEnv:
             events.append({'type': 'scan', 'agent': agent_id, 'pos': pos})
 
         elif action_type == 'rescue':
-            # Rescue victims in adjacent cells (radius 2 for better building reach)
+            # Rescue victims in adjacent cells (radius 1 = 3x3, matches observation radius)
+            # Only rescue people who are in danger (building has fire/debris/collapsed)
             x, y = pos
             rescued_count = 0
-            for dx in range(-2, 3):
-                for dy in range(-2, 3):
+            for dx in range(-1, 2):
+                for dy in range(-1, 2):
                     p = (x + dx, y + dy)
-                    if p in self.grid.cells:
+                    if p in self.grid.cells and self.grid.is_cell_in_danger(p):
                         cell = self.grid.cells[p]
                         for v in cell.victims:
                             if not v.rescued and v.health > 0:
@@ -420,15 +422,57 @@ class UrbanDisasterEnv:
             elif cell.hazard == HazardType.DEBRIS:
                 img[y, x] = [0.4, 0.35, 0.3]
 
-            # Victims
-            if cell.victims:
-                if any(not v.rescued and v.health > 0 for v in cell.victims):
-                    img[y, x] = [1.0, 1.0, 0.0]  # Yellow for live victims
-                elif any(v.rescued for v in cell.victims):
-                    img[y, x] = [0.0, 1.0, 0.5]  # Green-teal for rescued victims
-
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         ax.imshow(img, origin='lower', interpolation='nearest')
+
+        # --- Draw people/victims as markers with health timer rings ---
+        from matplotlib.patches import Arc
+        for (x, y), cell in self.grid.cells.items():
+            if not cell.victims:
+                continue
+            is_hazardous = self.grid.is_cell_in_danger((x, y))
+            alive_unrescued = [v for v in cell.victims if not v.rescued and v.health > 0]
+            rescued = [v for v in cell.victims if v.rescued]
+            dead = [v for v in cell.victims if not v.rescued and v.health <= 0]
+
+            if alive_unrescued:
+                n = len(alive_unrescued)
+                if is_hazardous:
+                    # Victim in danger — yellow diamond with health timer ring
+                    ax.plot(x, y, 'D', color='#facc15', markersize=9,
+                            markeredgecolor='black', markeredgewidth=0.8)
+                    # Health timer ring: arc proportional to avg health
+                    avg_health = sum(v.health for v in alive_unrescued) / n
+                    sweep = 360 * (avg_health / 100.0)
+                    ring_color = '#22c55e' if avg_health > 50 else '#eab308' if avg_health > 25 else '#ef4444'
+                    arc = Arc((x, y), 1.4, 1.4, angle=90, theta1=0, theta2=sweep,
+                              color=ring_color, linewidth=2.5)
+                    ax.add_patch(arc)
+                    # Always show victim count inside the marker
+                    ax.text(x, y, str(n), ha='center', va='center',
+                            fontsize=6, color='black', fontweight='bold')
+                else:
+                    # Safe person — white circle, no timer
+                    ax.plot(x, y, 'o', color='white', markersize=6,
+                            markeredgecolor='#64748b', markeredgewidth=0.8)
+                    if n > 1:
+                        ax.text(x, y, str(n), ha='center', va='center',
+                                fontsize=5, color='#334155', fontweight='bold')
+            elif rescued:
+                # Rescued — green-teal diamond with count
+                n = len(rescued)
+                ax.plot(x, y, 'D', color='#00ff80', markersize=8,
+                        markeredgecolor='black', markeredgewidth=0.8)
+                ax.text(x, y, str(n), ha='center', va='center',
+                        fontsize=6, color='black', fontweight='bold')
+            elif dead:
+                # Dead — grey X with count
+                n = len(dead)
+                ax.plot(x, y, 'X', color='#6b7280', markersize=7,
+                        markeredgecolor='#374151', markeredgewidth=0.8)
+                if n > 1:
+                    ax.text(x, y + 0.55, str(n), ha='center', va='bottom',
+                            fontsize=5, color='#9ca3af', fontweight='bold')
 
         # Agent markers
         colors = {'scout': 'cyan', 'firefighter': 'red', 'medic': 'green', 'commander': 'white'}
@@ -443,14 +487,21 @@ class UrbanDisasterEnv:
                      f'| {self.get_metrics()["collapsed_buildings"]} collapsed')
 
         # Legend
+        from matplotlib.lines import Line2D
         legend_items = [
             mpatches.Patch(color=[0.9, 0.9, 0.85], label='Road'),
             mpatches.Patch(color=[0.6, 0.6, 0.7], label='Building'),
             mpatches.Patch(color=[0.3, 0.3, 0.3], label='Collapsed'),
             mpatches.Patch(color=[0.5, 0.4, 0.3], label='Blocked'),
             mpatches.Patch(color=[1.0, 0.3, 0.0], label='Fire'),
-            mpatches.Patch(color=[1.0, 1.0, 0.0], label='Victims (Alive)'),
-            mpatches.Patch(color=[0.0, 1.0, 0.5], label='Victims (Rescued)'),
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='white',
+                   markeredgecolor='#64748b', markersize=8, linestyle='None', label='Person (Safe)'),
+            Line2D([0], [0], marker='D', color='w', markerfacecolor='#facc15',
+                   markeredgecolor='black', markersize=8, linestyle='None', label='Victim (Alive)'),
+            Line2D([0], [0], marker='D', color='w', markerfacecolor='#00ff80',
+                   markeredgecolor='black', markersize=8, linestyle='None', label='Victim (Rescued)'),
+            Line2D([0], [0], marker='X', color='w', markerfacecolor='#6b7280',
+                   markeredgecolor='#374151', markersize=8, linestyle='None', label='Victim (Dead)'),
         ]
         ax.legend(handles=legend_items, loc='upper right', fontsize=8)
 
@@ -503,15 +554,51 @@ class UrbanDisasterEnv:
                 elif cell.hazard == HazardType.DEBRIS:
                     img[y, x] = [0.4, 0.35, 0.3]
 
-                # Victims (only show if explored/observed)
-                if len(cell.victims) > 0:
-                    if any(not v.rescued for v in cell.victims):
-                        img[y, x] = [1.0, 1.0, 0.0]  # Yellow for unrescued victims
-                    elif any(v.rescued for v in cell.victims):
-                        img[y, x] = [0.0, 1.0, 0.5]  # Green-teal for rescued victims
-
         fig, ax = plt.subplots(1, 1, figsize=figsize)
         ax.imshow(img, origin='lower', interpolation='nearest')
+
+        # --- Draw known victims as markers with health timer rings ---
+        from matplotlib.patches import Arc
+        for (x, y), cell in mental_map.cells.items():
+            if not cell.explored or not cell.victims:
+                continue
+            is_hazardous = cell.hazard in (HazardType.FIRE, HazardType.DEBRIS)
+            alive_unrescued = [v for v in cell.victims if not v.rescued and v.health > 0]
+            rescued = [v for v in cell.victims if v.rescued]
+            dead = [v for v in cell.victims if not v.rescued and v.health <= 0]
+
+            if alive_unrescued:
+                n = len(alive_unrescued)
+                if is_hazardous:
+                    ax.plot(x, y, 'D', color='#facc15', markersize=9,
+                            markeredgecolor='black', markeredgewidth=0.8)
+                    avg_health = sum(v.health for v in alive_unrescued) / n
+                    sweep = 360 * (avg_health / 100.0)
+                    ring_color = '#22c55e' if avg_health > 50 else '#eab308' if avg_health > 25 else '#ef4444'
+                    arc = Arc((x, y), 1.4, 1.4, angle=90, theta1=0, theta2=sweep,
+                              color=ring_color, linewidth=2.5)
+                    ax.add_patch(arc)
+                    ax.text(x, y, str(n), ha='center', va='center',
+                            fontsize=6, color='black', fontweight='bold')
+                else:
+                    ax.plot(x, y, 'o', color='white', markersize=6,
+                            markeredgecolor='#64748b', markeredgewidth=0.8)
+                    if n > 1:
+                        ax.text(x, y, str(n), ha='center', va='center',
+                                fontsize=5, color='#334155', fontweight='bold')
+            elif rescued:
+                n = len(rescued)
+                ax.plot(x, y, 'D', color='#00ff80', markersize=8,
+                        markeredgecolor='black', markeredgewidth=0.8)
+                ax.text(x, y, str(n), ha='center', va='center',
+                        fontsize=6, color='black', fontweight='bold')
+            elif dead:
+                n = len(dead)
+                ax.plot(x, y, 'X', color='#6b7280', markersize=7,
+                        markeredgecolor='#374151', markeredgewidth=0.8)
+                if n > 1:
+                    ax.text(x, y + 0.55, str(n), ha='center', va='bottom',
+                            fontsize=5, color='#9ca3af', fontweight='bold')
 
         # Agent markers (if available)
         if hasattr(self, 'agent_positions'):
@@ -530,14 +617,21 @@ class UrbanDisasterEnv:
                      f'Exploration: {exploration_pct:.1f}% | Known Victims: {known_victims}')
 
         # Legend
+        from matplotlib.lines import Line2D
         legend_items = [
             mpatches.Patch(color=[0.9, 0.9, 0.85], label='Road (Known from maps)'),
             mpatches.Patch(color=[0.5, 0.4, 0.3], label='Road Blocked (Observed)'),
             mpatches.Patch(color=[0.6, 0.6, 0.7], label='Building (Known from maps)'),
             mpatches.Patch(color=[0.3, 0.3, 0.3], label='Building Collapsed (Observed)'),
             mpatches.Patch(color=[1.0, 0.3, 0.0], label='Fire (Observed)'),
-            mpatches.Patch(color=[1.0, 1.0, 0.0], label='Victims (Alive)'),
-            mpatches.Patch(color=[0.0, 1.0, 0.5], label='Victims (Rescued)'),
+            Line2D([0], [0], marker='o', color='w', markerfacecolor='white',
+                   markeredgecolor='#64748b', markersize=8, linestyle='None', label='Person (Safe)'),
+            Line2D([0], [0], marker='D', color='w', markerfacecolor='#facc15',
+                   markeredgecolor='black', markersize=8, linestyle='None', label='Victim (Alive)'),
+            Line2D([0], [0], marker='D', color='w', markerfacecolor='#00ff80',
+                   markeredgecolor='black', markersize=8, linestyle='None', label='Victim (Rescued)'),
+            Line2D([0], [0], marker='X', color='w', markerfacecolor='#6b7280',
+                   markeredgecolor='#374151', markersize=8, linestyle='None', label='Victim (Dead)'),
         ]
         ax.legend(handles=legend_items, loc='upper right', fontsize=8)
 

@@ -118,19 +118,25 @@ class CommanderAgent:
                         if pos in self.mental_map.cells:
                             cell = self.mental_map.cells[pos]
 
-                            # Check if victims need rescue based on hazards
-                            # If building has fire or debris, add victims to mental map
+                            # Determine if this cell's building is in danger
+                            in_danger = False
                             if cell.building_id is not None:
                                 b_id = cell.building_id
                                 building_cells = [c for c in self.mental_map.cells.values() if c.building_id == b_id]
                                 if any(c.hazard == HazardType.FIRE for c in building_cells):
-                                    cell.victims.extend([Victim(victim_id=-1, position=pos) for _ in range(count)])
+                                    in_danger = True
                                 elif cell.hazard == HazardType.DEBRIS:
-                                    cell.victims.extend([Victim(victim_id=-1, position=pos) for _ in range(count)])
+                                    in_danger = True
                             else:
-                                # Victims in road cells (unusual but possible)
                                 if cell.hazard in (HazardType.FIRE, HazardType.DEBRIS):
-                                    cell.victims.extend([Victim(victim_id=-1, position=pos) for _ in range(count)])
+                                    in_danger = True
+
+                            if in_danger:
+                                # Keep rescued victims, replace unrescued with fresh count
+                                rescued_victims = [v for v in cell.victims if v.rescued]
+                                cell.victims = rescued_victims + [
+                                    Victim(victim_id=-1, position=pos) for _ in range(count)
+                                ]
 
                             cell.explored = True
                             cell.last_updated_step = current_step
@@ -139,9 +145,9 @@ class CommanderAgent:
                     rescued_at = msg.metadata.get('rescued_at')
                     if rescued_at:
                         rx, ry = rescued_at
-                        # Mark victims as rescued in a radius matching the env rescue radius (2)
-                        for dx in range(-2, 3):
-                            for dy in range(-2, 3):
+                        # Mark victims as rescued in radius 1 (3x3, matches env rescue radius)
+                        for dx in range(-1, 2):
+                            for dy in range(-1, 2):
                                 rpos = (rx + dx, ry + dy)
                                 if rpos in self.mental_map.cells:
                                     rcell = self.mental_map.cells[rpos]

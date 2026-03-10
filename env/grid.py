@@ -195,7 +195,7 @@ class Grid:
                 edge_cells = list(building.cells)
             num_victims = max(1, count // len(self.buildings)) if self.buildings else 0
             num_to_place = min(num_victims, len(edge_cells))
-            chosen_indices = self.rng.choice(len(edge_cells), size=num_to_place, replace=False)
+            chosen_indices = self.rng.choice(len(edge_cells), size=num_to_place, replace=True)
             for idx in chosen_indices:
                 pos = edge_cells[idx]
                 v = Victim(victim_id=self.victim_counter, position=pos)
@@ -274,7 +274,8 @@ class Grid:
                         'blocked': c.blocked,
                         'hazard': c.hazard.name,
                         'fire_intensity': c.fire_intensity,
-                        'num_victims': len([v for v in c.victims if not v.rescued]),
+                        'num_victims': len([v for v in c.victims if not v.rescued and v.health > 0]),
+                        'in_danger': self.is_cell_in_danger(pos),
                         'explored': c.explored,
                         'building_id': c.building_id,
                     }
@@ -299,6 +300,23 @@ class Grid:
                                  heuristic=lambda a, b: abs(a[0]-b[0]) + abs(a[1]-b[1]))
         except nx.NetworkXNoPath:
             return None
+
+    def is_cell_in_danger(self, pos: Tuple[int, int]) -> bool:
+        """Check if a cell is in a hazardous building (any cell of that building has fire or debris)."""
+        cell = self.cells.get(pos)
+        if not cell or cell.building_id is None:
+            # Non-building cell: check its own hazard
+            return cell is not None and cell.hazard in (HazardType.FIRE, HazardType.DEBRIS)
+        # Building cell: check all cells of the same building
+        bid = cell.building_id
+        building = self.buildings.get(bid)
+        if building and building.collapsed:
+            return True
+        for bx, by in building.cells if building else []:
+            bcell = self.cells.get((bx, by))
+            if bcell and bcell.hazard in (HazardType.FIRE, HazardType.DEBRIS):
+                return True
+        return False
 
     def get_all_victims(self) -> List[Victim]:
         """Return all victims across the grid."""

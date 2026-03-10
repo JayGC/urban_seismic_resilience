@@ -65,18 +65,13 @@ class FieldAgent:
                 print(f"  >> [{self.agent_id}] Report -> commander: "
                       f"{f_count} fires, {v_count} victims, {b_count} blocked roads")
 
-        # Medics/firefighters send a rescue confirmation so the mental map updates.
+        # Medics/firefighters send a full observation + rescue confirmation
+        # so the mental map first discovers victims, then marks them rescued.
         if action['type'] == 'rescue' and self.agent_type in ('medic', 'firefighter'):
-            confirmation = make_report(
-                self.agent_id, self.position,
-                {
-                    'rescued_at': self.position,
-                    'summary': {},
-                },
-                obs.get('step', 0),
-            )
-            outgoing.append(confirmation)
-            print(f"  >> [{self.agent_id}] Rescue confirmation -> commander at {self.position}")
+            report = self._make_report(obs)
+            report.metadata['rescued_at'] = self.position
+            outgoing.append(report)
+            print(f"  >> [{self.agent_id}] Rescue report -> commander at {self.position}")
 
         if action['type'] == 'noop':
             self.idle_steps += 1
@@ -125,6 +120,18 @@ class FieldAgent:
             self.current_task = None
             self.path = []
             return action
+
+        # Opportunistic rescue: if medic/firefighter is adjacent to victims in danger, stop and rescue
+        if self.agent_type in ('medic', 'firefighter'):
+            x, y = self.position
+            for ddx in range(-1, 2):
+                for ddy in range(-1, 2):
+                    p = (x + ddx, y + ddy)
+                    if p in env.grid.cells and env.grid.is_cell_in_danger(p):
+                        cell = env.grid.cells[p]
+                        if any(not v.rescued and v.health > 0 for v in cell.victims):
+                            print(f"  !! [{self.agent_id}] Victims in danger nearby at {p}, stopping to rescue")
+                            return {'type': 'rescue'}
 
         # Check if next step is passable
         next_pos = self.path[1]
@@ -229,7 +236,9 @@ class FieldAgent:
         )
 
     def _find_nearest_target(self, env, target_type: str) -> Optional[Tuple[int, int]]:
-        """Find nearest cell matching target type using BFS on the grid graph."""
+        """Find nearest cell matching target type using BFS on the grid graph.
+        For 'victim': only targets people in hazardous buildings (actual victims).
+        """
         import networkx as nx
         if self.position not in env.grid.graph:
             return None
@@ -241,14 +250,15 @@ class FieldAgent:
 
         while queue:
             current = queue.pop(0)
-            # Check cells within radius 2 (to find victims in nearby buildings)
-            for dx in range(-2, 3):
-                for dy in range(-2, 3):
+            # Check cells within radius 1 (to find victims in adjacent buildings)
+            for dx in range(-1, 2):
+                for dy in range(-1, 2):
                     check = (current[0] + dx, current[1] + dy)
                     if check in env.grid.cells:
                         cell = env.grid.cells[check]
                         if target_type == 'victim':
-                            if any(not v.rescued and v.health > 0 for v in cell.victims):
+                            if (any(not v.rescued and v.health > 0 for v in cell.victims)
+                                    and env.grid.is_cell_in_danger(check)):
                                 return current  # Return the road cell nearby
                         elif target_type == 'fire':
                             if cell.hazard.name == 'FIRE':
@@ -428,24 +438,24 @@ class FirefighterAgent(FieldAgent):
     def _autonomous_action(self, obs: dict, env) -> dict:
         local = obs.get('local_grid', [])
         has_fire = False
-        has_victims = False
+        has_victims_in_danger = False
         for row in local:
             for cell in row:
                 if isinstance(cell, dict):
                     if cell.get('hazard') == 'FIRE':
                         has_fire = True
-                    if cell.get('num_victims', 0) > 0:
-                        has_victims = True
+                    if cell.get('num_victims', 0) > 0 and cell.get('in_danger', False):
+                        has_victims_in_danger = True
 
-        # Priority 1: extinguish adjacent fires
+        # Priority 1: rescue nearby victims in danger
+        if has_victims_in_danger:
+            return {'type': 'rescue'}
+
+        # Priority 2: extinguish adjacent fires
         if has_fire:
             return {'type': 'extinguish'}
 
-        # Priority 2: rescue nearby victims (in burning/collapsed buildings)
-        if has_victims:
-            return {'type': 'rescue'}
-
-        # Priority 3: find nearest fire (with victims preferred)
+        # Priority 3: find nearest fire
         target = self._find_nearest_target(env, 'fire')
         if target:
             return self._move_toward(target, env)
@@ -465,19 +475,19 @@ class MedicAgent(FieldAgent):
         super().__init__(agent_id, 'medic', position)
 
     def _autonomous_action(self, obs: dict, env) -> dict:
-        # Check if adjacent to victims
+        # Check if adjacent to victims in danger
         local = obs.get('local_grid', [])
-        has_victims_nearby = False
+        has_victims_in_danger = False
         for row in local:
             for cell in row:
-                if isinstance(cell, dict) and cell.get('num_victims', 0) > 0:
-                    has_victims_nearby = True
+                if isinstance(cell, dict) and cell.get('num_victims', 0) > 0 and cell.get('in_danger', False):
+                    has_victims_in_danger = True
                     break
 
-        if has_victims_nearby:
+        if has_victims_in_danger:
             return {'type': 'rescue'}
 
-        # Find nearest victim
+        # Find nearest victim in danger
         target = self._find_nearest_target(env, 'victim')
         if target:
             return self._move_toward(target, env)
