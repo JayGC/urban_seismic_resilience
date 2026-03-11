@@ -23,6 +23,10 @@ class FieldAgent:
         self.total_steps = 0
         self.actions_taken: List[str] = []
         self.status = 'idle'
+        # Set by SimulationController after creation; True when a commander
+        # is coordinating this agent.  When False the agent must rely solely
+        # on local observations (no global BFS).
+        self._has_commander = False
 
     def observe(self, env) -> dict:
         """Get local observation from environment."""
@@ -455,15 +459,16 @@ class FirefighterAgent(FieldAgent):
         if has_fire:
             return {'type': 'extinguish'}
 
-        # Priority 3: find nearest fire
-        target = self._find_nearest_target(env, 'fire')
-        if target:
-            return self._move_toward(target, env)
-
-        # Priority 4: help with victims elsewhere
-        target = self._find_nearest_target(env, 'victim')
-        if target:
-            return self._move_toward(target, env)
+        # Priority 3: global search only when a commander is coordinating
+        # (shared intelligence from scouts justifies global knowledge).
+        # In decentralized mode agents have no shared info — random walk.
+        if self._has_commander:
+            target = self._find_nearest_target(env, 'fire')
+            if target:
+                return self._move_toward(target, env)
+            target = self._find_nearest_target(env, 'victim')
+            if target:
+                return self._move_toward(target, env)
 
         return self._random_move(env)
 
@@ -487,9 +492,11 @@ class MedicAgent(FieldAgent):
         if has_victims_in_danger:
             return {'type': 'rescue'}
 
-        # Find nearest victim in danger
-        target = self._find_nearest_target(env, 'victim')
-        if target:
-            return self._move_toward(target, env)
+        # Global search only when a commander is coordinating.
+        # In decentralized mode agents have no shared info — random walk.
+        if self._has_commander:
+            target = self._find_nearest_target(env, 'victim')
+            if target:
+                return self._move_toward(target, env)
 
         return self._random_move(env)

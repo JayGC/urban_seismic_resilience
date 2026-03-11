@@ -1,10 +1,10 @@
 {
   "survivor_rate": {
-    "total_victims": 15,
-    "rescued": 2,
-    "dead": 13,
+    "total_victims": 14,
+    "rescued": 6,
+    "dead": 8,
     "alive_unrescued": 0,
-    "survivor_rate": 0.13333333333333333
+    "survivor_rate": 0.42857142857142855
   },
   "mental_map_fidelity": {
     "fidelity": null,
