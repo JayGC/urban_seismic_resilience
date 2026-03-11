@@ -1,12 +1,12 @@
-# RQ1: Low task density scenario
-# Few victims/fires, slow decay — easy scenario with plenty of time
+# High density scenario — many victims/fires, fast decay
+# Base config shared across RQ1–RQ4; experiments override specific fields.
 grid_width: 50
 grid_height: 50
-building_density: 0.20
-num_victims: 15
-num_fires: 5
-victim_decay_rate: 1.0
-fire_spread_prob: 0.02
+building_density: 0.30
+num_victims: 50
+num_fires: 20
+victim_decay_rate: 2.0
+fire_spread_prob: 0.08
 max_steps: 50
 seed: 42
 

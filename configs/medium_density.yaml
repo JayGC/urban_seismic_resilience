@@ -1,5 +1,5 @@
-# RQ1: Medium task density scenario
-# Moderate victims/fires, standard decay — balanced baseline
+# Medium density scenario — moderate victims/fires, standard decay
+# Base config shared across RQ1–RQ4; experiments override specific fields.
 grid_width: 50
 grid_height: 50
 building_density: 0.25
