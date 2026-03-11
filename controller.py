@@ -102,6 +102,10 @@ class SimulationController:
                 self.commander = HeuristicCommander(agent_ids)
             # Give commander direct access to field agent objects
             self.commander.field_agents = self.field_agents
+            # Tell field agents they have a commander (enables global search
+            # as fallback, justified by shared intelligence from scouts).
+            for agent in self.field_agents.values():
+                agent._has_commander = True
 
     def run_step(self) -> dict:
         """Execute one full step of the simulation."""
