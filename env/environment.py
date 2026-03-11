@@ -142,6 +142,7 @@ class UrbanDisasterEnv:
 
         # 3. Fire spread
         self._spread_fires()
+        self._process_fires()
 
         # 4. Victim health decay — only for people in hazardous buildings
         #    A person is a victim if ANY cell of their building has fire/debris/collapsed
@@ -292,6 +293,18 @@ class UrbanDisasterEnv:
         for pos, intensity in new_fires:
             self.grid.cells[pos].hazard = HazardType.FIRE
             self.grid.cells[pos].fire_intensity = intensity
+
+    def _process_fires(self):
+        "Mark all the buildings with any cell as fire to be on fire."
+        for bid, building in self.grid.buildings.items:
+            fire = False
+            for cx, cy in building.cells:
+                cell = self.grid.cells.get((cx, cy))
+                if cell.hazard == HazardType.FIRE:
+                    fire = True
+                    break
+            if fire:
+                building.fire = True
 
     def _apply_black_swan(self, event: dict):
         """Apply a black swan event (sudden collapse, fire, etc.)."""

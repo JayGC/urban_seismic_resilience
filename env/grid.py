@@ -71,6 +71,7 @@ class Building:
     collapsed: bool = False
     collapse_threshold: float = 20.0
     num_people_inside: int = 0
+    fire: bool = False
 
     def apply_damage(self, damage: float):
         self.integrity = max(0.0, self.integrity - damage)
@@ -347,6 +348,9 @@ class Grid:
                     b = self.buildings.get(c.building_id)
                     if b and b.collapsed:
                         collapsed += 1
+                        if b.num_people_inside > 0:
+                            victims += b.num_people_inside
+                    elif b and b.fire:
                         if b.num_people_inside > 0:
                             victims += b.num_people_inside
 
