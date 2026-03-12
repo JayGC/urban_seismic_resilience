@@ -521,7 +521,7 @@ class LLMCommander(CommanderAgent):
                  model: str = 'gpt-4o-mini',
                  provider: str = 'openai'):
         super().__init__(agent_ids)
-        self.api_key = "sk-pO9q3QH-PUbg1khdeFPN6Q"
+        self.api_key = ""
         # self.api_key = ""
         self.model = model
         self.provider = provider
