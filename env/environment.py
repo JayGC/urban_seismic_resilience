@@ -85,9 +85,13 @@ class UrbanDisasterEnv:
         self._apply_damage_to_buildings(damage_matrix)
         self._process_collapses()
 
-        # Place victims and fires
+        # Place victims and fires (fires weighted by proximity to epicenter)
         self.grid.place_victims(self.config.get('num_victims', 30))
-        self.grid.place_fires(self.config.get('num_fires', 10))
+        self.grid.place_fires(
+            self.config.get('num_fires', 10),
+            epicenter=self.seismic.epicenter if self.seismic else None,
+            decay_k=self.seismic.decay_k if self.seismic else 0.05,
+        )
 
         self.event_log.append({
             'step': 0,

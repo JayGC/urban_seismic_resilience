@@ -204,14 +204,42 @@ class Grid:
                 self.victim_counter += 1
                 self.cells[pos].victims.append(v)
 
-    def place_fires(self, count: int, intensity_range: Tuple[float, float] = (30, 80)):
-        """Place fires randomly in buildings."""
+    def place_fires(self, count: int, intensity_range: Tuple[float, float] = (30, 80),
+                    epicenter: Optional[Tuple[float, float]] = None,
+                    decay_k: float = 0.05):
+        """Place fires in buildings, weighted by proximity to the epicenter.
+
+        Args:
+            count: Number of fire cells to place.
+            intensity_range: (min, max) fire intensity.
+            epicenter: (x, y) of the earthquake epicenter.  When provided,
+                       buildings closer to the epicenter are much more likely
+                       to catch fire.  When None, fires are placed uniformly
+                       at random (legacy behaviour).
+            decay_k: Decay constant controlling how quickly fire probability
+                     drops with distance from the epicenter.
+        """
         building_cells = [(x, y) for (x, y), c in self.cells.items()
                          if c.cell_type == CellType.BUILDING]
         if not building_cells:
             return
         count = min(count, len(building_cells))
-        chosen = self.rng.choice(len(building_cells), size=count, replace=False)
+
+        if epicenter is not None:
+            # Weight each building cell by seismic intensity at that location
+            ex, ey = epicenter
+            distances = np.array([
+                np.sqrt((x - ex) ** 2 + (y - ey) ** 2)
+                for x, y in building_cells
+            ])
+            weights = np.exp(-decay_k * distances)
+            weights /= weights.sum()
+            chosen = self.rng.choice(len(building_cells), size=count,
+                                     replace=False, p=weights)
+        else:
+            chosen = self.rng.choice(len(building_cells), size=count,
+                                     replace=False)
+
         for idx in chosen:
             pos = building_cells[idx]
             self.cells[pos].hazard = HazardType.FIRE
