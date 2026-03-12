@@ -127,11 +127,13 @@ class CommanderAgent:
                             if not in_danger:
                                 if cell.building_id is not None:
                                     b_id = cell.building_id
-                                    building_cells = [c for c in self.mental_map.cells.values() if c.building_id == b_id]
-                                    if any(c.hazard == HazardType.FIRE for c in building_cells):
+                                    building = self.mental_map.buildings.get(b_id)
+                                    if building and building.collapsed:
                                         in_danger = True
-                                    elif cell.hazard == HazardType.DEBRIS:
-                                        in_danger = True
+                                    else:
+                                        building_cells = [c for c in self.mental_map.cells.values() if c.building_id == b_id]
+                                        if any(c.hazard in (HazardType.FIRE, HazardType.DEBRIS) for c in building_cells):
+                                            in_danger = True
                                 else:
                                     if cell.hazard in (HazardType.FIRE, HazardType.DEBRIS):
                                         in_danger = True

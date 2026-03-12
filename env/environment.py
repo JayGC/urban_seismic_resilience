@@ -296,7 +296,7 @@ class UrbanDisasterEnv:
 
     def _process_fires(self):
         "Mark all the buildings with any cell as fire to be on fire."
-        for bid, building in self.grid.buildings.items:
+        for bid, building in self.grid.buildings.items():
             fire = False
             for cx, cy in building.cells:
                 cell = self.grid.cells.get((cx, cy))
@@ -589,34 +589,43 @@ class UrbanDisasterEnv:
         ax.imshow(img, origin='lower', interpolation='nearest')
 
         # --- Draw known victims as markers with health timer rings ---
+        # The mental map only tracks victims (people in danger), never safe
+        # civilians, so every person here is rendered as a victim.
         from matplotlib.patches import Arc
         for (x, y), cell in mental_map.cells.items():
             if not cell.explored or not cell.victims:
                 continue
+            # Building-level hazard check (matches ground truth is_cell_in_danger)
             is_hazardous = cell.hazard in (HazardType.FIRE, HazardType.DEBRIS)
+            if not is_hazardous and cell.building_id is not None:
+                bid = cell.building_id
+                building = mental_map.buildings.get(bid)
+                if building and building.collapsed:
+                    is_hazardous = True
+                else:
+                    for b_cell in mental_map.cells.values():
+                        if b_cell.building_id == bid and b_cell.hazard in (HazardType.FIRE, HazardType.DEBRIS):
+                            is_hazardous = True
+                            break
             alive_unrescued = [v for v in cell.victims if not v.rescued and v.health > 0]
             rescued = [v for v in cell.victims if v.rescued]
             dead = [v for v in cell.victims if not v.rescued and v.health <= 0]
 
             if alive_unrescued:
                 n = len(alive_unrescued)
-                if is_hazardous:
-                    ax.plot(x, y, 'D', color='#facc15', markersize=9,
-                            markeredgecolor='black', markeredgewidth=0.8)
-                    avg_health = sum(v.health for v in alive_unrescued) / n
-                    sweep = 360 * (avg_health / 100.0)
-                    ring_color = '#22c55e' if avg_health > 50 else '#eab308' if avg_health > 25 else '#ef4444'
-                    arc = Arc((x, y), 1.4, 1.4, angle=90, theta1=0, theta2=sweep,
-                              color=ring_color, linewidth=2.5)
-                    ax.add_patch(arc)
-                    ax.text(x, y, str(n), ha='center', va='center',
-                            fontsize=6, color='black', fontweight='bold')
-                else:
-                    ax.plot(x, y, 'o', color='white', markersize=6,
-                            markeredgecolor='#64748b', markeredgewidth=0.8)
-                    if n > 1:
-                        ax.text(x, y, str(n), ha='center', va='center',
-                                fontsize=5, color='#334155', fontweight='bold')
+                # Mental map only contains victims (in danger) — always
+                # render as victim markers.  The building-level check above
+                # catches cases where the hazard is on a sibling cell.
+                ax.plot(x, y, 'D', color='#facc15', markersize=9,
+                        markeredgecolor='black', markeredgewidth=0.8)
+                avg_health = sum(v.health for v in alive_unrescued) / n
+                sweep = 360 * (avg_health / 100.0)
+                ring_color = '#22c55e' if avg_health > 50 else '#eab308' if avg_health > 25 else '#ef4444'
+                arc = Arc((x, y), 1.4, 1.4, angle=90, theta1=0, theta2=sweep,
+                          color=ring_color, linewidth=2.5)
+                ax.add_patch(arc)
+                ax.text(x, y, str(n), ha='center', va='center',
+                        fontsize=6, color='black', fontweight='bold')
             elif rescued:
                 n = len(rescued)
                 ax.plot(x, y, 'D', color='#00ff80', markersize=8,

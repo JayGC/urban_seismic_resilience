@@ -73,6 +73,13 @@ class FieldAgent:
             outgoing.append(report)
             print(f"  >> [{self.agent_id}] Rescue report -> commander at {self.position}")
 
+        # Firefighters send observation reports after extinguishing so the
+        # mental map learns that the fire has been cleared.
+        if action['type'] == 'extinguish' and self.agent_type == 'firefighter':
+            report = self._make_report(obs)
+            outgoing.append(report)
+            print(f"  >> [{self.agent_id}] Extinguish report -> commander at {self.position}")
+
         if action['type'] == 'noop':
             self.idle_steps += 1
         self.actions_taken.append(action['type'])
@@ -197,7 +204,7 @@ class FieldAgent:
                     if cell.get('hazard') == 'FIRE':
                         fires.append((abs_x, abs_y, cell.get('fire_intensity', 0)))
                     
-                    if cell.get('num_victims', 0) > 0:
+                    if cell.get('num_victims', 0) > 0 and cell.get('in_danger', False):
                         victims.append((abs_x, abs_y, cell.get('num_victims', 0)))
                     
                     if cell.get('blocked', False) and cell.get('type') == 'ROAD':

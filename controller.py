@@ -8,6 +8,7 @@ import os
 from typing import Dict, List, Optional, Tuple, Any
 
 from env.environment import UrbanDisasterEnv
+from env.grid import HazardType
 from agents.messages import MessageBus, Message
 from agents.field_agents import FieldAgent, ScoutAgent, FirefighterAgent, MedicAgent
 from agents.commander import CommanderAgent, HeuristicCommander, LLMCommander
@@ -148,6 +149,20 @@ class SimulationController:
 
         # 3. Environment step
         obs, rewards, done, info = self.env.step(actions)
+
+        # 3b. Update mental map for fires that were just extinguished
+        #     (env processes extinguish actions after agents observe, so the
+        #      mental map would otherwise retain stale fire data until the
+        #      next observation cycle)
+        if self.commander and self.commander.mental_map:
+            for event in info.get('events', []):
+                if event.get('type') == 'fire_out':
+                    pos = event['pos']
+                    if pos in self.commander.mental_map.cells:
+                        cell = self.commander.mental_map.cells[pos]
+                        cell.hazard = HazardType.NONE
+                        cell.fire_intensity = 0.0
+                        cell.last_updated_step = self.step_count
 
         # 4. Log trajectory
         step_data = {
