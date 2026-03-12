@@ -5,7 +5,7 @@ grid_height: 50
 building_density: 0.25
 num_victims: 155
 num_fires: 10
-victim_decay_rate: 1.5
+victim_decay_rate: 0.7
 fire_spread_prob: 0.05
 max_steps: 50
 seed: 42

@@ -20,7 +20,7 @@ def index():
 @app.route('/start', methods=['POST'])
 def start():
     global global_ctrl
-    config_path = os.path.join('configs', 'low_hazard.yaml')
+    config_path = os.path.join('configs', 'medium_density.yaml') #[low_density, medium_density, high_density]
     if os.path.exists(config_path):
         with open(config_path) as f:
             config = yaml.safe_load(f)
