@@ -33,24 +33,15 @@ python run_rq4_llm_full_comparison.py --scenario hierarchical  # Only hierarchic
 python run_rq4_llm_full_comparison.py --visualize  # Plots from existing results
 ```
 
-### Find seed where hierarchical wins (optional)
-```bash
-python rq4_llm/find_hierarchical_favoured_seed.py --seeds 20
-```
 
 ## Outputs
 
-- `results/rq4_llm_results.json` — greedy-favoured scenario
 - `results/rq4_llm_full_comparison_report.json` — combined report
 - `results/plots/rq4_llm_second_order_vs_greedy.png` — single scenario chart
 - `results/plots/rq4_llm_full_comparison.png` — side-by-side comparison
-- `rq4_llm/FINDINGS.md` — greedy-favoured answer
-- `rq4_llm/FINDINGS_HIERARCHICAL_FAVOURED.md` — hierarchical-favoured answer
 
 ## Difference from Other RQ4 Modules
 
 | Module | Commander | Compares |
 |--------|-----------|----------|
-| `rq4/` | Heuristic | Hierarchical vs Decentralized |
-| `rq4_final/` | Heuristic | Second-Order Thinking metrics (hierarchical only) |
 | `rq4_llm/` | **LLM** | Hierarchical (LLM) vs Decentralized |
