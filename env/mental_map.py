@@ -182,8 +182,26 @@ class MentalMap:
                     building_id = obs_cell.get('building_id')
                     if building_id is not None and building_id in self.buildings:
                         self.buildings[building_id].collapsed = True
-                
-                # Note: Victim information is updated separately via update_victim_info
+
+                # Update victim state from observation.
+                # num_victims in the observation counts only alive + unrescued.
+                num_victims_observed = obs_cell.get('num_victims', 0)
+
+                # Separate existing mental map victims by state
+                rescued = [v for v in mental_cell.victims if v.rescued]
+                alive_unrescued = [v for v in mental_cell.victims if not v.rescued and v.health > 0]
+                dead = [v for v in mental_cell.victims if not v.rescued and v.health <= 0]
+
+                if num_victims_observed < len(alive_unrescued):
+                    # Some victims died — mark excess as dead
+                    newly_dead_count = len(alive_unrescued) - num_victims_observed
+                    for v in alive_unrescued[:newly_dead_count]:
+                        v.health = 0.0
+                elif num_victims_observed > len(alive_unrescued) and obs_cell.get('in_danger', False):
+                    # New victims discovered in a dangerous cell
+                    new_count = num_victims_observed - len(alive_unrescued)
+                    for _ in range(new_count):
+                        mental_cell.victims.append(Victim(victim_id=-1, position=abs_pos))
     
     def update_victim_info(self, position: Tuple[int, int], 
                           victim_count: int,
@@ -204,10 +222,25 @@ class MentalMap:
         mental_cell.explored = True
         mental_cell.last_updated_step = step
 
-        # Keep a lightweight placeholder list to represent known victim count.
-        # (Commander needs counts, not individual identities.)
+        # victim_count is the number of alive unrescued victims observed.
+        # Preserve rescued and dead victims; adjust alive unrescued to match.
         victim_count = max(0, int(victim_count))
-        mental_cell.victims = [Victim(victim_id=-1, position=position) for _ in range(victim_count)]
+        rescued = [v for v in mental_cell.victims if v.rescued]
+        alive_unrescued = [v for v in mental_cell.victims if not v.rescued and v.health > 0]
+        dead = [v for v in mental_cell.victims if not v.rescued and v.health <= 0]
+
+        if victim_count < len(alive_unrescued):
+            # Some died — mark excess as dead
+            newly_dead = len(alive_unrescued) - victim_count
+            for v in alive_unrescued[:newly_dead]:
+                v.health = 0.0
+            mental_cell.victims = rescued + dead + alive_unrescued
+        else:
+            # Add new placeholders for any additional victims discovered
+            new_count = victim_count - len(alive_unrescued)
+            mental_cell.victims = rescued + dead + alive_unrescued + [
+                Victim(victim_id=-1, position=position) for _ in range(new_count)
+            ]
     
     def update_building_collapse(self, building_id: int, collapsed: bool, step: int):
         """
@@ -349,29 +382,34 @@ class MentalMap:
     
     def get_all_known_victims(self) -> List[Tuple[int, int, int]]:
         """
-        Return list of known victim locations.
+        Return list of known victim locations (alive and unrescued only).
         Returns: List of (x, y, count) tuples
         """
         known_victims = []
         for pos, cell in self.cells.items():
-            if cell.explored and len(cell.victims) > 0:
-                known_victims.append((pos[0], pos[1], len(cell.victims)))
+            if cell.explored:
+                alive_unrescued = [v for v in cell.victims if not v.rescued and v.health > 0]
+                if alive_unrescued:
+                    known_victims.append((pos[0], pos[1], len(alive_unrescued)))
         return known_victims
 
     def get_known_victims_by_hazard(self) -> Tuple[List[Tuple[int, int, int]], List[Tuple[int, int, int]]]:
-        """Return victims split by hazard: (fire_victims, debris_victims).
-        fire_victims:  cells where hazard is FIRE and victims exist.
-        debris_victims: cells where hazard is DEBRIS (collapsed) and victims exist.
+        """Return alive unrescued victims split by hazard: (fire_victims, debris_victims).
+        fire_victims:  cells where hazard is FIRE and alive victims exist.
+        debris_victims: cells where hazard is DEBRIS (collapsed) and alive victims exist.
         Each entry is (x, y, count).
         """
         fire_victims = []
         debris_victims = []
         for pos, cell in self.cells.items():
-            if cell.explored and len(cell.victims) > 0:
-                if cell.hazard == HazardType.FIRE:
-                    fire_victims.append((pos[0], pos[1], len(cell.victims)))
-                elif cell.hazard == HazardType.DEBRIS:
-                    debris_victims.append((pos[0], pos[1], len(cell.victims)))
+            if cell.explored:
+                alive_unrescued = [v for v in cell.victims if not v.rescued and v.health > 0]
+                if alive_unrescued:
+                    count = len(alive_unrescued)
+                    if cell.hazard == HazardType.FIRE:
+                        fire_victims.append((pos[0], pos[1], count))
+                    elif cell.hazard == HazardType.DEBRIS:
+                        debris_victims.append((pos[0], pos[1], count))
         return fire_victims, debris_victims
 
     def get_all_known_fires(self) -> List[Tuple[int, int, float]]:

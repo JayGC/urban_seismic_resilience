@@ -139,9 +139,10 @@ class CommanderAgent:
                                         in_danger = True
 
                             if in_danger:
-                                # Keep rescued victims, replace unrescued with fresh count
+                                # Keep rescued and dead victims, replace alive unrescued with fresh count
                                 rescued_victims = [v for v in cell.victims if v.rescued]
-                                cell.victims = rescued_victims + [
+                                dead_victims = [v for v in cell.victims if not v.rescued and v.health <= 0]
+                                cell.victims = rescued_victims + dead_victims + [
                                     Victim(victim_id=-1, position=pos) for _ in range(count)
                                 ]
 
