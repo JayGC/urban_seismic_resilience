@@ -1,0 +1,26 @@
+{
+  "survivor_rate": {
+    "total_victims": 19,
+    "rescued": 10,
+    "dead": 9,
+    "alive_unrescued": 0,
+    "survivor_rate": 0.5263157894736842
+  },
+  "mental_map_fidelity": {
+    "fidelity": null,
+    "note": "no mental map available"
+  },
+  "commander_llm_stats": {
+    "num_llm_calls": 0,
+    "avg_latency_seconds": 0.0,
+    "avg_input_tokens": 0.0,
+    "avg_output_tokens": 0.0,
+    "avg_total_tokens": 0.0,
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "total_tokens": 0,
+    "per_call_log": []
+  },
+  "simulation_steps": 45,
+  "max_steps": 50
+}

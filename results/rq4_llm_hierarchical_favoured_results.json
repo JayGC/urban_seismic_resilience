@@ -1,0 +1,76 @@
+{
+  "experiment": "RQ4_Strategic_Horizon_Hierarchical_Favoured",
+  "metric": "Global vs Local Efficiency",
+  "commander": "LLM",
+  "scenario": "trap_scenario_hierarchical_favoured",
+  "conditions": {
+    "hierarchical": {
+      "survivor_rate_mean": 0.08823529411764705,
+      "survivor_rate_std": 0.029411764705882353,
+      "rescued_mean": 1.5,
+      "rescued_post_collapse_mean": 1.0,
+      "rescued_post_collapse_std": 0.0,
+      "per_seed": [
+        {
+          "seed": 42,
+          "survivor_rate": 0.11764705882352941,
+          "rescued": 2,
+          "rescued_at_collapse": 1,
+          "rescued_post_collapse": 1,
+          "total_victims": 17,
+          "dead": 15,
+          "alive_unrescued": 0,
+          "simulation_steps": 43
+        },
+        {
+          "seed": 43,
+          "survivor_rate": 0.058823529411764705,
+          "rescued": 1,
+          "rescued_at_collapse": 0,
+          "rescued_post_collapse": 1,
+          "total_victims": 17,
+          "dead": 16,
+          "alive_unrescued": 0,
+          "simulation_steps": 33
+        }
+      ]
+    },
+    "decentralized": {
+      "survivor_rate_mean": 0.16041666666666665,
+      "survivor_rate_std": 0.027083333333333334,
+      "rescued_mean": 2.5,
+      "rescued_post_collapse_mean": 2.0,
+      "rescued_post_collapse_std": 1.0,
+      "per_seed": [
+        {
+          "seed": 42,
+          "survivor_rate": 0.1875,
+          "rescued": 3,
+          "rescued_at_collapse": 0,
+          "rescued_post_collapse": 3,
+          "total_victims": 16,
+          "dead": 13,
+          "alive_unrescued": 0,
+          "simulation_steps": 43
+        },
+        {
+          "seed": 43,
+          "survivor_rate": 0.13333333333333333,
+          "rescued": 2,
+          "rescued_at_collapse": 1,
+          "rescued_post_collapse": 1,
+          "total_victims": 15,
+          "dead": 13,
+          "alive_unrescued": 0,
+          "simulation_steps": 43
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "num_seeds": 2,
+    "trap_collapse_step": 5,
+    "config_path": "/Users/abhayjain/Downloads/urban_seismic_resilience-main-final/configs/trap_scenario_llm_hierarchical_favoured.yaml",
+    "description": "Hierarchical (LLM Commander) vs Decentralized (greedy). RQ4: Second-Order Thinking vs Greedy Steps. Scenario designed to favour hierarchical coordination."
+  }
+}

@@ -1,0 +1,48 @@
+# Trap scenario FAVOURING hierarchical (LLM Commander) over decentralized (greedy)
+# Design: Earlier collapse, more scouts, fewer rescuers, faster decay.
+# Goal: Strategic coordination outperforms greedy nearest-target.
+#
+# Key differences from trap_scenario_llm.yaml:
+# - Collapse at step 5 (earlier) → greedy agents waste more steps discovering block
+# - 4 scouts (vs 3) → faster mental map updates for commander
+# - 2 firefighters, 2 medics (vs 3,4) → coordination more critical
+# - Faster victim decay (3.5) → wasting steps is costlier
+# - Fewer victims (16) → each rescue matters more; commander can focus
+# - Larger grid (60x60) → longer paths; trap blocks "shortcut" while detour exists
+#
+grid_width: 60
+grid_height: 60
+building_density: 0.30
+num_victims: 16
+num_fires: 8
+victim_decay_rate: 3.5
+fire_spread_prob: 0.05
+max_steps: 50
+seed: 42
+
+seismic:
+  epicenter: [15, 15]
+  magnitude: 7.0
+  decay_k: 0.04
+  intensity_scale: 1.3
+  aftershocks:
+    - step: 4
+      magnitude: 5.5
+      epicenter: [45, 45]
+    - step: 15
+      magnitude: 5.0
+      epicenter: [30, 30]
+  black_swans:
+    - step: 5
+      type: collapse
+      building_id: 3
+
+agents:
+  num_scouts: 4
+  num_firefighters: 2
+  num_medics: 2
+
+controller_mode: hierarchical
+commander_type: llm
+dropout_rate: 0.0
+message_mode: semantic

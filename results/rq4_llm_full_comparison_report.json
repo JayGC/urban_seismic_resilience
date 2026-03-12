@@ -1,0 +1,37 @@
+{
+  "experiment": "RQ4_LLM_Full_Comparison",
+  "scenarios": {
+    "greedy_favoured": {
+      "name": "Greedy-Favoured (trap_scenario_llm)",
+      "hierarchical": {
+        "survivor_rate_mean": 0.2316017316017316,
+        "survivor_rate_std": 0.04112554112554112,
+        "rescued_mean": 5.0
+      },
+      "decentralized": {
+        "survivor_rate_mean": 0.4699248120300752,
+        "survivor_rate_std": 0.10150375939849623,
+        "rescued_mean": 9.5
+      },
+      "winner": "decentralized"
+    },
+    "hierarchical_favoured": {
+      "name": "Hierarchical-Favoured (trap_scenario_llm_hierarchical_favoured)",
+      "hierarchical": {
+        "survivor_rate_mean": 0.08823529411764705,
+        "survivor_rate_std": 0.029411764705882353,
+        "rescued_mean": 1.5
+      },
+      "decentralized": {
+        "survivor_rate_mean": 0.16041666666666665,
+        "survivor_rate_std": 0.027083333333333334,
+        "rescued_mean": 2.5
+      },
+      "winner": "decentralized"
+    }
+  },
+  "summary": {
+    "greedy_favoured_winner": "decentralized",
+    "hierarchical_favoured_winner": "decentralized"
+  }
+}

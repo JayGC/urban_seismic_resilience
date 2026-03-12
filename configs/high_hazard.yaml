@@ -1,0 +1,34 @@
+# High hazard scenario
+grid_width: 50
+grid_height: 50
+building_density: 0.30
+num_victims: 50
+num_fires: 20
+victim_decay_rate: 2.0
+fire_spread_prob: 0.08
+max_steps: 50
+seed: 42
+
+seismic:
+  epicenter: [25, 25]
+  magnitude: 7.5
+  decay_k: 0.03
+  intensity_scale: 1.5
+  aftershocks:
+    - step: 5
+      magnitude: 6.0
+    - step: 12
+      magnitude: 5.5
+    - step: 20
+      magnitude: 5.0
+  black_swans: []
+
+agents:
+  num_scouts: 3
+  num_firefighters: 3
+  num_medics: 4
+
+controller_mode: hierarchical
+commander_type: llm
+dropout_rate: 0.0
+message_mode: semantic

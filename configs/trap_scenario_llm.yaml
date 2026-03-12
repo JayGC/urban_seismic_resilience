@@ -1,0 +1,38 @@
+# Trap scenario with LLM Commander (RQ4 Strategic Horizon Analysis)
+# Same as trap_scenario.yaml but commander_type: llm for Second-Order Thinking
+grid_width: 50
+grid_height: 50
+building_density: 0.35
+num_victims: 40
+num_fires: 15
+victim_decay_rate: 2.5
+fire_spread_prob: 0.06
+max_steps: 50
+seed: 123
+
+seismic:
+  epicenter: [10, 10]
+  magnitude: 7.0
+  decay_k: 0.04
+  intensity_scale: 1.3
+  aftershocks:
+    - step: 6
+      magnitude: 5.5
+      epicenter: [40, 40]
+    - step: 18
+      magnitude: 5.0
+      epicenter: [25, 25]
+  black_swans:
+    - step: 10
+      type: collapse
+      building_id: 3
+
+agents:
+  num_scouts: 3
+  num_firefighters: 3
+  num_medics: 4
+
+controller_mode: hierarchical
+commander_type: llm
+dropout_rate: 0.0
+message_mode: semantic
