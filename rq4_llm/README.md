@@ -9,14 +9,6 @@ This module runs **RQ4: Strategic Horizon Analysis** with the **LLM Commander** 
 - **Metric:** Global vs. Local Efficiency
 - **Conditions:** Hierarchical (LLM Commander) vs. Decentralized (greedy)
 
-## Two Trap Scenarios for Final Report
-
-| Scenario | Config | Expected Winner |
-|----------|--------|-----------------|
-| **Greedy-Favoured** | `trap_scenario_llm.yaml` | Decentralized (greedy) |
-| **Hierarchical-Favoured** | `trap_scenario_llm_hierarchical_favoured.yaml` | Hierarchical (LLM) |
-
-The hierarchical-favoured scenario uses earlier collapse (step 5), more scouts, fewer rescuers, and faster victim decay so that strategic coordination outperforms greedy behaviour.
 
 ## Setup
 
@@ -49,7 +41,6 @@ python rq4_llm/find_hierarchical_favoured_seed.py --seeds 20
 ## Outputs
 
 - `results/rq4_llm_results.json` — greedy-favoured scenario
-- `results/rq4_llm_hierarchical_favoured_results.json` — hierarchical-favoured scenario
 - `results/rq4_llm_full_comparison_report.json` — combined report
 - `results/plots/rq4_llm_second_order_vs_greedy.png` — single scenario chart
 - `results/plots/rq4_llm_full_comparison.png` — side-by-side comparison
